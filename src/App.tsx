@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
+
 import {
   AuthSession,
   ScreenType,
   UserProfile,
   CampusEvent,
-  ChatMessage,
   SeniorQuestion,
   StudentProfileDraft,
-  TeammateCandidate
+  TeammateCandidate,
 } from './types';
 
 import {
@@ -15,7 +15,6 @@ import {
   mockEvents,
   mockClubs,
   mockQuestions,
-  initialChatMessages
 } from './data';
 
 import { authService } from './services/authService';
@@ -43,9 +42,9 @@ import { EditProfileModal } from './components/modals/EditProfileModal';
 import { TeamBuilderModal } from './components/modals/TeamBuilderModal';
 
 export function App() {
-  // ---------------------------------------------------------
-  // Authentication
-  // ---------------------------------------------------------
+  // =========================================================
+  // AUTHENTICATION
+  // =========================================================
 
   const [session, setSession] = useState<AuthSession | null>(() =>
     authService.getSession()
@@ -53,50 +52,48 @@ export function App() {
 
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  // ---------------------------------------------------------
-  // Application state
-  // ---------------------------------------------------------
+  // =========================================================
+  // USER / CONNECT DATA
+  // =========================================================
 
-  const [currentScreen, setCurrentScreen] =
-    useState<ScreenType>('home');
-
-  const [user, setUser] =
-    useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   const [setupSuccessProfile, setSetupSuccessProfile] =
     useState<UserProfile | null>(null);
 
-  const [connectCandidates, setConnectCandidates] =
-    useState<TeammateCandidate[]>([]);
+  const [connectCandidates, setConnectCandidates] = useState<
+    TeammateCandidate[]
+  >([]);
 
-  const [connectedCount, setConnectedCount] =
-    useState(0);
+  const [connectedCount, setConnectedCount] = useState(0);
 
-  const [recentConnections, setRecentConnections] =
-    useState<
-      Array<{
-        id: string;
-        name: string;
-        relation: string;
-        avatar: string;
-      }>
-    >([]);
+  const [recentConnections, setRecentConnections] = useState<
+    Array<{
+      id: string;
+      name: string;
+      relation: string;
+      avatar: string;
+    }>
+  >([]);
+
+  // =========================================================
+  // OTHER APP DATA
+  // =========================================================
 
   const [events, setEvents] =
     useState<CampusEvent[]>(mockEvents);
 
-  const [chatMessages, setChatMessages] =
-    useState<ChatMessage[]>(initialChatMessages);
-
   const [questions, setQuestions] =
     useState<SeniorQuestion[]>(mockQuestions);
 
-  const [searchQuery, setSearchQuery] =
-    useState('');
+  const [currentScreen, setCurrentScreen] =
+    useState<ScreenType>('home');
 
-  // ---------------------------------------------------------
-  // Modal state
-  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // =========================================================
+  // MODALS / UI
+  // =========================================================
 
   const [isCreateEventModalOpen, setIsCreateEventModalOpen] =
     useState(false);
@@ -113,36 +110,33 @@ export function App() {
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
-  // ---------------------------------------------------------
-  // Toast
-  // ---------------------------------------------------------
+  // =========================================================
+  // TOAST
+  // =========================================================
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
 
     window.setTimeout(() => {
       setToastMessage(null);
     }, 3000);
-  };
+  }, []);
 
-  // ---------------------------------------------------------
-  // Hydrate connection/student data
-  // ---------------------------------------------------------
+  // =========================================================
+  // LOAD CONNECT DATA
+  // =========================================================
 
   const hydrateConnectData = useCallback(
     async (currentUserProfile: UserProfile) => {
       try {
-        const [
-          allStudents,
-          connections
-        ] = await Promise.all([
+        const [allStudents, connections] = await Promise.all([
           studentService.getStudents(
             currentUserProfile.student_id
           ),
 
           connectionService.getConnections(
             currentUserProfile.student_id
-          )
+          ),
         ]);
 
         const candidates =
@@ -158,46 +152,36 @@ export function App() {
             connections
           );
 
-        const studentMap =
-          new Map(
-            allStudents.map((student) => [
-              student.student_id,
-              student
-            ])
-          );
+        const studentMap = new Map(
+          allStudents.map((student) => [
+            student.student_id,
+            student,
+          ])
+        );
 
-        const recent =
-          connectedStudentIds
-            .map((studentId) =>
-              studentMap.get(studentId)
-            )
-            .filter(
-              (
-                profile
-              ): profile is UserProfile =>
-                Boolean(profile)
-            )
-            .sort(
-              (left, right) =>
-                new Date(
-                  right.last_active
-                ).getTime() -
-                new Date(
-                  left.last_active
-                ).getTime()
-            )
-            .slice(0, 8)
-            .map((profile) => ({
-              id: profile.student_id,
-              name: profile.name,
-              relation: `${profile.branch} • ${profile.year}`,
+        const recent = connectedStudentIds
+          .map((studentId) => studentMap.get(studentId))
+          .filter(
+            (profile): profile is UserProfile =>
+              Boolean(profile)
+          )
+          .sort(
+            (left, right) =>
+              new Date(right.last_active).getTime() -
+              new Date(left.last_active).getTime()
+          )
+          .slice(0, 8)
+          .map((profile) => ({
+            id: profile.student_id,
+            name: profile.name,
 
-              // Always provide a valid string.
-              avatar:
-                profile.avatar ||
-                profile.avatarUrl ||
-                ''
-            }));
+            relation: `${profile.branch} • ${profile.year}`,
+
+            avatar:
+              profile.avatar ||
+              profile.avatarUrl ||
+              '',
+          }));
 
         setConnectCandidates(candidates);
 
@@ -209,12 +193,14 @@ export function App() {
 
         /*
          * IMPORTANT:
-         * Update the user only after ALL database
-         * operations succeeded.
          *
-         * This prevents a temporary database error
-         * from replacing the current user with null.
+         * Only update the user after successful
+         * database operations.
+         *
+         * If Lakebase temporarily fails,
+         * the existing user remains on screen.
          */
+
         setUser({
           ...currentUserProfile,
 
@@ -222,44 +208,44 @@ export function App() {
             connectedStudentIds.length,
 
           connections:
-            connectedStudentIds
+            connectedStudentIds,
         });
 
         setErrorMessage(null);
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Unable to refresh student data right now.';
-
         console.error(
           'hydrateConnectData failed:',
           error
         );
 
         /*
-         * DO NOT setUser(null) here.
+         * Do NOT setUser(null).
          *
-         * If the database temporarily fails,
-         * keep the existing user on screen.
+         * A temporary backend/database error
+         * must not blank the application.
          */
-        setErrorMessage(message);
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Unable to refresh student data right now.'
+        );
       }
     },
     []
   );
 
-  // ---------------------------------------------------------
-  // Bootstrap application
-  // ---------------------------------------------------------
+  // =========================================================
+  // BOOTSTRAP
+  // =========================================================
 
   useEffect(() => {
     let mounted = true;
 
     const bootstrap = async () => {
-      // -----------------------------------------------
-      // No authenticated session
-      // -----------------------------------------------
+      // -----------------------------------------------------
+      // No session
+      // -----------------------------------------------------
 
       if (!session) {
         if (!mounted) {
@@ -275,35 +261,27 @@ export function App() {
         return;
       }
 
-      try {
-        /*
-         * ------------------------------------------------
-         * Development mock session
-         * ------------------------------------------------
-         *
-         * If you are using dev-user-001 somewhere locally,
-         * do not query Lakebase for it.
-         *
-         * IMPORTANT:
-         * We do NOT set user to null here.
-         */
-        if (
-          session.auth_user_id ===
-          'dev-user-001'
-        ) {
-          if (mounted) {
-            setIsBootstrapping(false);
-          }
+      // -----------------------------------------------------
+      // Development mock session
+      // -----------------------------------------------------
 
-          return;
+      if (
+        session.auth_user_id ===
+        'dev-user-001'
+      ) {
+        if (mounted) {
+          setIsBootstrapping(false);
         }
 
-        // -----------------------------------------------
-        // Load the student's real profile
-        // -----------------------------------------------
+        return;
+      }
 
-        let activeProfile: UserProfile | null =
-          null;
+      try {
+        let activeProfile: UserProfile | null = null;
+
+        // ---------------------------------------------------
+        // Try touchActive
+        // ---------------------------------------------------
 
         try {
           activeProfile =
@@ -317,8 +295,9 @@ export function App() {
           );
         }
 
-        // If touchActive didn't return a profile,
-        // try fetching the profile directly.
+        // ---------------------------------------------------
+        // If not found, get by auth user ID
+        // ---------------------------------------------------
 
         if (!activeProfile) {
           try {
@@ -338,30 +317,23 @@ export function App() {
           return;
         }
 
-        // -----------------------------------------------
-        // No profile exists yet
-        // -----------------------------------------------
+        // ---------------------------------------------------
+        // No profile yet
+        // ---------------------------------------------------
 
         if (!activeProfile) {
           /*
-           * Only clear the user if there genuinely
-           * isn't one already.
-           *
-           * This prevents a refresh from blanking
-           * an already-loaded application.
+           * Leave user alone instead of forcing
+           * an already-loaded user to null.
            */
-          setUser((currentUser) =>
-            currentUser ?? null
-          );
-
           setIsBootstrapping(false);
 
           return;
         }
 
-        // -----------------------------------------------
+        // ---------------------------------------------------
         // Profile exists
-        // -----------------------------------------------
+        // ---------------------------------------------------
 
         await hydrateConnectData(
           activeProfile
@@ -393,74 +365,19 @@ export function App() {
     };
   }, [
     session,
-    hydrateConnectData
+    hydrateConnectData,
   ]);
 
-  // ---------------------------------------------------------
-  // Keep student active
-  // ---------------------------------------------------------
+  // =========================================================
+  // BACKGROUND ACTIVE STATUS REFRESH
+  // =========================================================
 
   useEffect(() => {
     if (!session || !user) {
       return;
     }
 
-    const interval =
-      window.setInterval(() => {
-        void (async () => {
-          try {
-            const refreshed =
-              await studentService.touchActive(
-                session.auth_user_id
-              );
-
-            /*
-             * Only update the UI if the backend
-             * actually returned a profile.
-             *
-             * Never replace the existing user with null.
-             */
-            if (refreshed) {
-              await hydrateConnectData(
-                refreshed
-              );
-            }
-          } catch (error) {
-            console.error(
-              'Background profile refresh failed:',
-              error
-            );
-
-            /*
-             * Do NOT clear user.
-             */
-          }
-        })();
-      }, 60000);
-
-    return () =>
-      window.clearInterval(interval);
-  }, [
-    session,
-    user,
-    hydrateConnectData
-  ]);
-
-  // ---------------------------------------------------------
-  // Navigation
-  // ---------------------------------------------------------
-
-  const handleNavigate = (
-    screen: ScreenType
-  ) => {
-    setCurrentScreen(screen);
-
-    /*
-     * Refresh data when navigating,
-     * but never destroy the existing user
-     * if the backend temporarily fails.
-     */
-    if (session && user) {
+    const interval = window.setInterval(() => {
       void (async () => {
         try {
           const refreshed =
@@ -468,6 +385,10 @@ export function App() {
               session.auth_user_id
             );
 
+          /*
+           * Only refresh when a real profile
+           * comes back from the backend.
+           */
           if (refreshed) {
             await hydrateConnectData(
               refreshed
@@ -475,22 +396,76 @@ export function App() {
           }
         } catch (error) {
           console.error(
-            'Navigation refresh failed:',
+            'Background profile refresh failed:',
             error
           );
+
+          /*
+           * Never clear user here.
+           */
         }
       })();
-    }
+    }, 60000);
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'instant'
-    });
-  };
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [
+    session,
+    user,
+    hydrateConnectData,
+  ]);
 
-  // ---------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------
+  // =========================================================
+  // NAVIGATION
+  // =========================================================
+
+  const handleNavigate = useCallback(
+    (screen: ScreenType) => {
+      setCurrentScreen(screen);
+
+      /*
+       * Refresh data when navigating,
+       * but never destroy the current user.
+       */
+
+      if (session && user) {
+        void (async () => {
+          try {
+            const refreshed =
+              await studentService.touchActive(
+                session.auth_user_id
+              );
+
+            if (refreshed) {
+              await hydrateConnectData(
+                refreshed
+              );
+            }
+          } catch (error) {
+            console.error(
+              'Navigation refresh failed:',
+              error
+            );
+          }
+        })();
+      }
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant',
+      });
+    },
+    [
+      session,
+      user,
+      hydrateConnectData,
+    ]
+  );
+
+  // =========================================================
+  // LOGIN
+  // =========================================================
 
   const handleLogin = async (
     email: string,
@@ -507,19 +482,20 @@ export function App() {
       setSetupSuccessProfile(null);
       setSession(nextSession);
     } catch (error) {
-      setErrorMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : 'Login failed.'
-      );
+          : 'Login failed.';
+
+      setErrorMessage(message);
 
       throw error;
     }
   };
 
-  // ---------------------------------------------------------
-  // Sign up
-  // ---------------------------------------------------------
+  // =========================================================
+  // SIGN UP
+  // =========================================================
 
   const handleSignUp = async (
     email: string,
@@ -536,19 +512,20 @@ export function App() {
       setSetupSuccessProfile(null);
       setSession(nextSession);
     } catch (error) {
-      setErrorMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : 'Sign up failed.'
-      );
+          : 'Sign up failed.';
+
+      setErrorMessage(message);
 
       throw error;
     }
   };
 
-  // ---------------------------------------------------------
-  // Logout
-  // ---------------------------------------------------------
+  // =========================================================
+  // LOGOUT
+  // =========================================================
 
   const handleLogout = () => {
     authService.logout();
@@ -565,9 +542,9 @@ export function App() {
     setErrorMessage(null);
   };
 
-  // ---------------------------------------------------------
-  // Create profile
-  // ---------------------------------------------------------
+  // =========================================================
+  // CREATE PROFILE
+  // =========================================================
 
   const handleCreateProfile = (
     draft: StudentProfileDraft
@@ -586,8 +563,7 @@ export function App() {
           );
 
         /*
-         * Set the profile immediately after
-         * successful creation.
+         * Set/hydrate the newly created profile.
          */
         await hydrateConnectData(
           profile
@@ -604,19 +580,18 @@ export function App() {
           error
         );
 
-        const message =
+        setErrorMessage(
           error instanceof Error
             ? error.message
-            : 'Unable to save your profile right now.';
-
-        setErrorMessage(message);
+            : 'Unable to save your profile right now.'
+        );
       }
     })();
   };
 
-  // ---------------------------------------------------------
-  // Send connection request
-  // ---------------------------------------------------------
+  // =========================================================
+  // SEND CONNECTION REQUEST
+  // =========================================================
 
   const sendConnectionRequest = (
     candidate: TeammateCandidate
@@ -652,19 +627,18 @@ export function App() {
           error
         );
 
-        const message =
+        setErrorMessage(
           error instanceof Error
             ? error.message
-            : 'Unable to send request right now.';
-
-        setErrorMessage(message);
+            : 'Unable to send request right now.'
+        );
       }
     })();
   };
 
-  // ---------------------------------------------------------
-  // Accept connection
-  // ---------------------------------------------------------
+  // =========================================================
+  // ACCEPT CONNECTION
+  // =========================================================
 
   const acceptConnectionRequest = (
     candidate: TeammateCandidate
@@ -700,19 +674,18 @@ export function App() {
           error
         );
 
-        const message =
+        setErrorMessage(
           error instanceof Error
             ? error.message
-            : 'Unable to accept request right now.';
-
-        setErrorMessage(message);
+            : 'Unable to accept request right now.'
+        );
       }
     })();
   };
 
-  // ---------------------------------------------------------
-  // Pass candidate
-  // ---------------------------------------------------------
+  // =========================================================
+  // PASS
+  // =========================================================
 
   const passCandidate = (
     candidate: TeammateCandidate
@@ -744,26 +717,25 @@ export function App() {
           error
         );
 
-        const message =
+        setErrorMessage(
           error instanceof Error
             ? error.message
-            : 'Unable to update this match right now.';
-
-        setErrorMessage(message);
+            : 'Unable to update this match right now.'
+        );
       }
     })();
   };
 
-  // ---------------------------------------------------------
-  // Events
-  // ---------------------------------------------------------
+  // =========================================================
+  // CREATE EVENT
+  // =========================================================
 
   const handleAddEvent = (
     newEvent: CampusEvent
   ) => {
     setEvents((prev) => [
       newEvent,
-      ...prev
+      ...prev,
     ]);
 
     showToast(
@@ -771,135 +743,32 @@ export function App() {
     );
   };
 
-  // ---------------------------------------------------------
-  // GenZen AI messages
-  // ---------------------------------------------------------
-
-  const handleSendMessage = (
-    text: string
-  ) => {
-    const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      sender: 'user',
-      text,
-      timestamp: 'Just now'
-    };
-
-    setChatMessages((prev) => [
-      ...prev,
-      userMsg
-    ]);
-
-    setTimeout(() => {
-      let aiResponseText =
-        `I analyzed campus activity for: "${text}". Here is what our campus intelligence graph recommends.`;
-
-      let cards:
-        ChatMessage['cards'] =
-        undefined;
-
-      const lower =
-        text.toLowerCase();
-
-      if (
-        lower.includes('hackathon') ||
-        lower.includes('team') ||
-        lower.includes('python')
-      ) {
-        aiResponseText =
-          "You're in a great position to build a winning team. I matched you with 3 peers whose skills complement your Python and ML background perfectly.";
-
-        cards = {
-          hackathon: {
-            title: 'AI for Good Hackathon',
-            daysLeft: 6,
-            attending: 42
-          },
-
-          potentialTeam: {
-            compatibility: 95,
-
-            members: [
-              {
-                name: 'Aarav',
-                role: 'Backend • 94%',
-                match: 94,
-                avatar:
-                  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80'
-              },
-
-              {
-                name: 'Priya',
-                role: 'UI/UX • 91%',
-                match: 91,
-                avatar:
-                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80'
-              },
-
-              {
-                name: 'Karthik',
-                role: 'Cloud • 89%',
-                match: 89,
-                avatar:
-                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80'
-              }
-            ]
-          }
-        };
-      } else if (
-        lower.includes('club') ||
-        lower.includes('join')
-      ) {
-        aiResponseText =
-          'Based on your focus on UX research and Machine Learning, the AI & Machine Learning Club (98% match) and Design Collective (85% match) have active recruiting projects this week.';
-      } else if (
-        lower.includes('senior') ||
-        lower.includes('elective') ||
-        lower.includes('internship')
-      ) {
-        aiResponseText =
-          'Top seniors recommend CS401 (Advanced ML) for project depth and beginning daily LeetCode practice early in your 4th semester for product firm interviews.';
-      } else if (
-        lower.includes('week') ||
-        lower.includes('event') ||
-        lower.includes('schedule')
-      ) {
-        aiResponseText =
-          'This week features 7 campus events, including the Design Jam 2023 tomorrow and Open Source Hackathon Meetup on October 18th.';
-      }
-
-      const aiMsg: ChatMessage = {
-        id: `msg-${Date.now() + 1}`,
-        sender: 'ai',
-        text: aiResponseText,
-        timestamp: 'Just now',
-        cards
-      };
-
-      setChatMessages((prev) => [
-        ...prev,
-        aiMsg
-      ]);
-    }, 600);
-  };
-
-  // ---------------------------------------------------------
-  // Senior question
-  // ---------------------------------------------------------
+  // =========================================================
+  // SENIOR QUESTION
+  // =========================================================
 
   const handleAskQuestion = (
     title: string,
     category: string,
     description: string
   ) => {
+    console.log(
+      'Question submitted:',
+      {
+        title,
+        category,
+        description,
+      }
+    );
+
     showToast(
       `Question "${title}" submitted to seniors.`
     );
   };
 
-  // ---------------------------------------------------------
-  // Invite candidate
-  // ---------------------------------------------------------
+  // =========================================================
+  // INVITE TEAM MEMBER
+  // =========================================================
 
   const handleInviteCandidate = (
     name: string
@@ -909,9 +778,9 @@ export function App() {
     );
   };
 
-  // ---------------------------------------------------------
-  // Bootstrap loading screen
-  // ---------------------------------------------------------
+  // =========================================================
+  // BOOTSTRAP LOADING
+  // =========================================================
 
   if (isBootstrapping) {
     return (
@@ -919,9 +788,9 @@ export function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------
+  // =========================================================
+  // LOGIN
+  // =========================================================
 
   if (!session) {
     return (
@@ -932,9 +801,9 @@ export function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // Profile creation success
-  // ---------------------------------------------------------
+  // =========================================================
+  // PROFILE CREATION SUCCESS
+  // =========================================================
 
   if (setupSuccessProfile) {
     return (
@@ -948,9 +817,9 @@ export function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // Profile setup
-  // ---------------------------------------------------------
+  // =========================================================
+  // PROFILE SETUP
+  // =========================================================
 
   if (!user) {
     return (
@@ -961,16 +830,16 @@ export function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // Main application
-  // ---------------------------------------------------------
+  // =========================================================
+  // MAIN APPLICATION
+  // =========================================================
 
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
 
-      {/* ---------------------------------------------------
-          Toast
-      --------------------------------------------------- */}
+      {/* ===================================================
+          TOAST
+      =================================================== */}
 
       {toastMessage && (
         <div className="fixed top-20 right-8 z-50 bg-[#1e1d24] border border-[#c2652a]/40 text-[#fbe8d8] px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -984,9 +853,9 @@ export function App() {
         </div>
       )}
 
-      {/* ---------------------------------------------------
-          Error
-      --------------------------------------------------- */}
+      {/* ===================================================
+          ERROR
+      =================================================== */}
 
       {errorMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-rose-500/15 border border-rose-400/30 text-rose-100 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 max-w-[90vw]">
@@ -1011,9 +880,9 @@ export function App() {
         </div>
       )}
 
-      {/* ---------------------------------------------------
-          Navigation
-      --------------------------------------------------- */}
+      {/* ===================================================
+          SIDEBAR
+      =================================================== */}
 
       <NavigationSidebar
         currentScreen={currentScreen}
@@ -1025,9 +894,9 @@ export function App() {
         onLogout={handleLogout}
       />
 
-      {/* ---------------------------------------------------
-          Main content
-      --------------------------------------------------- */}
+      {/* ===================================================
+          MAIN CONTENT
+      =================================================== */}
 
       <div className="md:pl-64 flex flex-col flex-1 pb-16 md:pb-0">
 
@@ -1105,15 +974,11 @@ export function App() {
             />
           )}
 
-          {/* AI */}
+          {/* GENZEN AI */}
 
           {currentScreen === 'ai' && (
             <GenZenAIScreen
               user={user}
-              messages={chatMessages}
-              onSendMessage={
-                handleSendMessage
-              }
               onNavigate={handleNavigate}
               onOpenTeamBuilder={() =>
                 setIsTeamBuilderModalOpen(true)
@@ -1150,9 +1015,9 @@ export function App() {
         </main>
       </div>
 
-      {/* ---------------------------------------------------
-          Create Event Modal
-      --------------------------------------------------- */}
+      {/* ===================================================
+          CREATE EVENT MODAL
+      =================================================== */}
 
       <CreateEventModal
         isOpen={
@@ -1166,9 +1031,9 @@ export function App() {
         }
       />
 
-      {/* ---------------------------------------------------
-          Edit Profile Modal
-      --------------------------------------------------- */}
+      {/* ===================================================
+          EDIT PROFILE MODAL
+      =================================================== */}
 
       <EditProfileModal
         isOpen={
@@ -1206,20 +1071,19 @@ export function App() {
                 error
               );
 
-              const message =
+              setErrorMessage(
                 error instanceof Error
                   ? error.message
-                  : 'Unable to update profile right now.';
-
-              setErrorMessage(message);
+                  : 'Unable to update profile right now.'
+              );
             }
           })();
         }}
       />
 
-      {/* ---------------------------------------------------
-          Team Builder Modal
-      --------------------------------------------------- */}
+      {/* ===================================================
+          TEAM BUILDER MODAL
+      =================================================== */}
 
       <TeamBuilderModal
         isOpen={
@@ -1243,7 +1107,6 @@ export function App() {
           );
         }}
       />
-
     </div>
   );
 }
