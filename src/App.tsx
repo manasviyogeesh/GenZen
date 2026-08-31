@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
-import { ScreenType, UserProfile, CampusEvent, ChatMessage, SeniorQuestion } from './types';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  currentUser,
+  AuthSession,
+  ScreenType,
+  UserProfile,
+  CampusEvent,
+  ChatMessage,
+  SeniorQuestion,
+  StudentProfileDraft,
+  TeammateCandidate
+} from './types';
+import {
   initialSignals,
-  mockCandidates,
   mockEvents,
   mockClubs,
   mockQuestions,
   initialChatMessages
 } from './data';
+import { authService } from './services/authService';
+import { studentService } from './services/studentService';
+import { matchingService } from './services/matchingService';
+import { connectionService } from './services/connectionService';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { TopAppBar } from './components/TopAppBar';
 import { HomeScreen } from './components/screens/HomeScreen';
@@ -18,13 +29,22 @@ import { EventsScreen } from './components/screens/EventsScreen';
 import { GenZenAIScreen } from './components/screens/GenZenAIScreen';
 import { SeniorPOVScreen } from './components/screens/SeniorPOVScreen';
 import { ClubsScreen } from './components/screens/ClubsScreen';
+import { LoginScreen } from './components/screens/LoginScreen';
+import { ProfileSetupScreen } from './components/screens/ProfileSetupScreen';
+import { ProfileSetupSuccessScreen } from './components/screens/ProfileSetupSuccessScreen';
 import { CreateEventModal } from './components/modals/CreateEventModal';
 import { EditProfileModal } from './components/modals/EditProfileModal';
 import { TeamBuilderModal } from './components/modals/TeamBuilderModal';
 
 export function App() {
+  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
-  const [user, setUser] = useState<UserProfile>(currentUser);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [setupSuccessProfile, setSetupSuccessProfile] = useState<UserProfile | null>(null);
+  const [connectCandidates, setConnectCandidates] = useState<TeammateCandidate[]>([]);
+  const [connectedCount, setConnectedCount] = useState(0);
+  const [recentConnections, setRecentConnections] = useState<Array<{ id: string; name: string; relation: string; avatar: string }>>([]);
   const [events, setEvents] = useState<CampusEvent[]>(mockEvents);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
   const [questions, setQuestions] = useState<SeniorQuestion[]>(mockQuestions);
@@ -35,15 +55,222 @@ export function App() {
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isTeamBuilderModalOpen, setIsTeamBuilderModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const hydrateConnectData = useCallback(async (currentUserProfile: UserProfile) => {
+    try {
+      const [allStudents, connections] = await Promise.all([
+        studentService.getStudents(currentUserProfile.student_id),
+        connectionService.getConnections(currentUserProfile.student_id)
+      ]);
+
+      const candidates = matchingService.buildCandidates(currentUserProfile, allStudents, connections);
+      const connectedStudentIds = connectionService.getConnectedStudentIds(currentUserProfile.student_id, connections);
+      const studentMap = new Map(allStudents.map((student) => [student.student_id, student]));
+
+      const recent = connectedStudentIds
+        .map((studentId) => studentMap.get(studentId))
+        .filter((profile): profile is UserProfile => Boolean(profile))
+        .sort((left, right) => new Date(right.last_active).getTime() - new Date(left.last_active).getTime())
+        .slice(0, 8)
+        .map((profile) => ({
+          id: profile.student_id,
+          name: profile.name,
+          relation: `${profile.branch} • ${profile.year}`,
+          avatar: profile.avatar || profile.avatarUrl
+        }));
+
+      setConnectCandidates(candidates);
+      setConnectedCount(connectedStudentIds.length);
+      setRecentConnections(recent);
+      setUser({
+        ...currentUserProfile,
+        connectionsCount: connectedStudentIds.length,
+        connections: connectedStudentIds
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to refresh student data right now.';
+      setErrorMessage(message);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      if (!session) {
+        if (!mounted) {
+          return;
+        }
+        setUser(null);
+        setConnectCandidates([]);
+        setConnectedCount(0);
+        setRecentConnections([]);
+        setIsBootstrapping(false);
+        return;
+      }
+
+      try {
+        const activeProfile = await studentService.touchActive(session.auth_user_id)
+          || await studentService.getStudentByAuthUserId(session.auth_user_id);
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!activeProfile) {
+          setUser(null);
+          setIsBootstrapping(false);
+          return;
+        }
+
+        await hydrateConnectData(activeProfile);
+      } finally {
+        if (mounted) {
+          setIsBootstrapping(false);
+        }
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session, hydrateConnectData]);
+
+  useEffect(() => {
+    if (!session || !user) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void (async () => {
+        const refreshed = await studentService.touchActive(session.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+      })();
+    }, 60000);
+
+    return () => window.clearInterval(interval);
+  }, [session, user, hydrateConnectData]);
+
   const handleNavigate = (screen: ScreenType) => {
     setCurrentScreen(screen);
+    if (session) {
+      void (async () => {
+        const refreshed = await studentService.touchActive(session.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+      })();
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const handleLogin = async (email: string, password: string) => {
+    const nextSession = await authService.login(email, password);
+    setErrorMessage(null);
+    setSetupSuccessProfile(null);
+    setSession(nextSession);
+  };
+
+  const handleSignUp = async (email: string, password: string) => {
+    const nextSession = await authService.signUp(email, password);
+    setErrorMessage(null);
+    setSetupSuccessProfile(null);
+    setSession(nextSession);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setSession(null);
+    setUser(null);
+    setSetupSuccessProfile(null);
+    setCurrentScreen('home');
+  };
+
+  const handleCreateProfile = (draft: StudentProfileDraft) => {
+    if (!session) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const profile = await studentService.createStudentProfile(session.auth_user_id, session.email, draft);
+        await hydrateConnectData(profile);
+        setSetupSuccessProfile(profile);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to save your profile right now.';
+        setErrorMessage(message);
+      }
+    })();
+  };
+
+  const sendConnectionRequest = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.sendRequest(user.student_id, candidate.student_id);
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+        showToast(`Connection request sent to ${candidate.name}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to send request right now.';
+        setErrorMessage(message);
+      }
+    })();
+  };
+
+  const acceptConnectionRequest = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.acceptRequest(user.student_id, candidate.student_id);
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+        showToast(`You are now connected with ${candidate.name}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to accept request right now.';
+        setErrorMessage(message);
+      }
+    })();
+  };
+
+  const passCandidate = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.pass(user.student_id, candidate.student_id);
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to update this match right now.';
+        setErrorMessage(message);
+      }
+    })();
   };
 
   const handleAddEvent = (newEvent: CampusEvent) => {
@@ -127,6 +354,35 @@ export function App() {
     showToast(`Invitation dispatched to ${name}!`);
   };
 
+  if (isBootstrapping) {
+    return <div className="min-h-screen bg-[#0d0c0f]" />;
+  }
+
+  if (!session) {
+    return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} />;
+  }
+
+  if (setupSuccessProfile) {
+    return (
+      <ProfileSetupSuccessScreen
+        profile={setupSuccessProfile}
+        onContinue={() => {
+          setSetupSuccessProfile(null);
+          setCurrentScreen('connect');
+        }}
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <ProfileSetupScreen
+        email={session.email}
+        onComplete={handleCreateProfile}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
       {/* Toast Notification */}
@@ -137,12 +393,20 @@ export function App() {
         </div>
       )}
 
+      {errorMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-rose-500/15 border border-rose-400/30 text-rose-100 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2">
+          <span className="material-symbols-outlined text-rose-300 text-lg">error</span>
+          <span className="text-sm font-medium">{errorMessage}</span>
+        </div>
+      )}
+
       {/* Shared Navigation Sidebar */}
       <NavigationSidebar
         currentScreen={currentScreen}
         onNavigate={handleNavigate}
         onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
         user={user}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -170,9 +434,14 @@ export function App() {
           {currentScreen === 'connect' && (
             <ConnectScreen
               user={user}
-              candidates={mockCandidates}
+              candidates={connectCandidates}
               onNavigate={handleNavigate}
               onOpenTeamBuilder={() => setIsTeamBuilderModalOpen(true)}
+              onSendConnectionRequest={sendConnectionRequest}
+              onAcceptConnection={acceptConnectionRequest}
+              onPassCandidate={passCandidate}
+              connectedCount={connectedCount}
+              recentConnections={recentConnections}
             />
           )}
 
@@ -233,16 +502,32 @@ export function App() {
         onClose={() => setIsEditProfileModalOpen(false)}
         user={user}
         onSave={(updated) => {
-          setUser(updated);
-          showToast('Profile updated successfully.');
+          if (!session) {
+            return;
+          }
+
+          void (async () => {
+            try {
+              const saved = await studentService.updateStudentProfile(user.student_id, updated);
+              await hydrateConnectData(saved);
+              showToast('Profile updated successfully.');
+              setErrorMessage(null);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Unable to update profile right now.';
+              setErrorMessage(message);
+            }
+          })();
         }}
       />
 
       <TeamBuilderModal
         isOpen={isTeamBuilderModalOpen}
         onClose={() => setIsTeamBuilderModalOpen(false)}
-        candidates={mockCandidates}
-        onInviteCandidate={handleInviteCandidate}
+        candidates={connectCandidates}
+        onInviteCandidate={(candidate) => {
+          sendConnectionRequest(candidate);
+          handleInviteCandidate(candidate.name);
+        }}
       />
     </div>
   );

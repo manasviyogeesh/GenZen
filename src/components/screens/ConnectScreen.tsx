@@ -6,43 +6,48 @@ interface ConnectScreenProps {
   candidates: TeammateCandidate[];
   onNavigate: (screen: ScreenType) => void;
   onOpenTeamBuilder: () => void;
+  onSendConnectionRequest: (candidate: TeammateCandidate) => void;
+  onAcceptConnection: (candidate: TeammateCandidate) => void;
+  onPassCandidate: (candidate: TeammateCandidate) => void;
+  connectedCount: number;
+  recentConnections: { id: string; name: string; relation: string; avatar: string }[];
 }
 
 export const ConnectScreen: React.FC<ConnectScreenProps> = ({
   user,
   candidates,
   onNavigate,
-  onOpenTeamBuilder
+  onOpenTeamBuilder,
+  onSendConnectionRequest,
+  onAcceptConnection,
+  onPassCandidate,
+  connectedCount,
+  recentConnections
 }) => {
   const [activeTab, setActiveTab] = useState<'for_you' | 'looking_for_teams' | 'looking_for_projects'>('for_you');
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [connectedCount, setConnectedCount] = useState(user.connectionsCount);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [starredList, setStarredList] = useState<string[]>([]);
-  const [recentConnections, setRecentConnections] = useState([
-    {
-      id: 'conn-1',
-      name: 'Priya S',
-      relation: 'Connected through AI Club',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'conn-2',
-      name: 'Rahul K',
-      relation: 'Connected through Hackathon',
-      avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80'
-    }
-  ]);
 
-  const currentCandidate = candidates[candidateIndex % candidates.length];
+  const hasCandidates = candidates.length > 0;
+  const currentCandidate = hasCandidates ? candidates[candidateIndex % candidates.length] : null;
 
   const handleSkip = () => {
+    if (!currentCandidate) {
+      return;
+    }
+
+    onPassCandidate(currentCandidate);
     setActionFeedback(`Passed on ${currentCandidate.name}. Showing next match.`);
     setTimeout(() => setActionFeedback(null), 2500);
     setCandidateIndex((prev) => prev + 1);
   };
 
   const handleStar = () => {
+    if (!currentCandidate) {
+      return;
+    }
+
     if (!starredList.includes(currentCandidate.id)) {
       setStarredList([...starredList, currentCandidate.id]);
       setActionFeedback(`Saved ${currentCandidate.name} to your starred shortlist.`);
@@ -54,20 +59,35 @@ export const ConnectScreen: React.FC<ConnectScreenProps> = ({
   };
 
   const handleConnect = () => {
-    setActionFeedback(`🤝 Connection request sent to ${currentCandidate.name}!`);
-    setConnectedCount((prev) => prev + 1);
-    setRecentConnections((prev) => [
-      {
-        id: `conn-${Date.now()}`,
-        name: currentCandidate.name,
-        relation: `Connected just now (${currentCandidate.department})`,
-        avatar: currentCandidate.avatarUrl
-      },
-      ...prev
-    ]);
+    if (!currentCandidate) {
+      return;
+    }
+
+    if (currentCandidate.relationshipStatus === 'incoming_pending') {
+      onAcceptConnection(currentCandidate);
+      setActionFeedback(`Connected with ${currentCandidate.name}.`);
+    } else if (currentCandidate.relationshipStatus === 'connect' || currentCandidate.relationshipStatus === 'pass') {
+      onSendConnectionRequest(currentCandidate);
+      setActionFeedback(`Connection request sent to ${currentCandidate.name}.`);
+    }
+
     setTimeout(() => setActionFeedback(null), 3000);
     setCandidateIndex((prev) => prev + 1);
   };
+
+  const connectLabel = !currentCandidate
+    ? 'Connect'
+    : currentCandidate.relationshipStatus === 'connected'
+      ? 'Connected'
+      : currentCandidate.relationshipStatus === 'pending'
+        ? 'Pending'
+        : currentCandidate.relationshipStatus === 'incoming_pending'
+          ? 'Accept'
+          : 'Connect';
+
+  const connectDisabled = !currentCandidate
+    || currentCandidate.relationshipStatus === 'connected'
+    || currentCandidate.relationshipStatus === 'pending';
 
   return (
     <div className="flex-1 min-h-screen p-6 md:p-8 lg:p-10 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
@@ -123,12 +143,34 @@ export const ConnectScreen: React.FC<ConnectScreenProps> = ({
 
         {/* Main Discovery Card */}
         <div className="glass-card rounded-3xl p-6 md:p-8 flex-1 flex flex-col relative overflow-hidden border border-white/10 shadow-2xl">
+          {!currentCandidate ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-14 px-4">
+              <div className="w-16 h-16 rounded-full bg-white/10 border border-white/15 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-3xl text-white/70">group_off</span>
+              </div>
+              <h3 className="font-headline text-3xl font-bold text-white">No profiles yet</h3>
+              <p className="text-white/60 mt-2 max-w-md">
+                As more students sign up and complete profiles, they will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Match Score Badge */}
           <div className="absolute top-6 right-6 bg-[#c2652a]/20 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-[#c2652a]/40 shadow-sm backdrop-blur-md">
             <span className="material-symbols-outlined text-sm text-cyan-400" style={{ fontVariationSettings: "'FILL' 1" }}>
               stars
             </span>
             <span>{currentCandidate.matchScore}% Match</span>
+          </div>
+
+          <div className={`absolute top-16 right-6 text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+            currentCandidate.presenceLabel === 'Online now'
+              ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
+              : currentCandidate.presenceLabel === 'Active recently'
+                ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10'
+                : 'text-white/60 border-white/15 bg-white/5'
+          }`}>
+            {currentCandidate.presenceLabel}
           </div>
 
           {/* Profile Header */}
@@ -213,6 +255,11 @@ export const ConnectScreen: React.FC<ConnectScreenProps> = ({
             <p className="text-sm text-white/80 leading-relaxed">
               <strong className="text-white font-semibold">Why this match?</strong> {currentCandidate.matchReason}
             </p>
+            <div className="mt-2.5 space-y-1 text-xs text-white/75">
+              {currentCandidate.matchReasonBullets.map((reason) => (
+                <p key={reason}>✓ {reason}</p>
+              ))}
+            </div>
           </div>
 
           {/* Tinder/Discovery Controls */}
@@ -247,12 +294,17 @@ export const ConnectScreen: React.FC<ConnectScreenProps> = ({
             {/* Handshake Connect */}
             <button
               onClick={handleConnect}
+              disabled={connectDisabled}
               title="Connect / Collaborate"
-              className="w-16 h-16 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_4px_20px_rgba(8,145,178,0.5)] transition-all flex items-center justify-center active:scale-95"
+              className="w-16 h-16 rounded-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-white/20 disabled:text-white/50 text-white shadow-[0_4px_20px_rgba(8,145,178,0.5)] transition-all flex items-center justify-center active:scale-95"
             >
-              <span className="material-symbols-outlined text-3xl">handshake</span>
+              <span className="material-symbols-outlined text-3xl">
+                {connectLabel === 'Accept' ? 'done_all' : 'handshake'}
+              </span>
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -288,6 +340,9 @@ export const ConnectScreen: React.FC<ConnectScreenProps> = ({
           </div>
 
           <div className="space-y-3">
+            {recentConnections.length === 0 && (
+              <p className="text-xs text-white/50">No connections yet. Send your first request.</p>
+            )}
             {recentConnections.map((conn) => (
               <div
                 key={conn.id}

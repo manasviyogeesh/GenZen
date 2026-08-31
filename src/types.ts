@@ -7,18 +7,72 @@ export type ScreenType =
   | 'senior_pov'
   | 'clubs';
 
+export type ConnectionStatus = 'pending' | 'connected' | 'passed';
+
 export interface UserProfile {
+  student_id: string;
+  auth_user_id: string;
+  email: string;
   name: string;
   role: string;
   year: string;
+  branch: string;
   department: string;
   connectionsCount: number;
+  avatar: string;
   avatarUrl: string;
   skills: string[];
   interests: string[];
   lookingFor: string[];
-  availability: string;
+  availability: string[];
   bio: string;
+  clubs: string[];
+  events: string[];
+  connections: string[];
+  created_at: string;
+  last_active: string;
+}
+
+export interface AuthAccount {
+  auth_user_id: string;
+  email: string;
+  password_hash: string;
+  password_salt: string;
+  created_at: string;
+  last_login_at?: string;
+}
+
+export interface AuthSession {
+  auth_user_id: string;
+  email: string;
+  signed_in_at: string;
+}
+
+export interface ConnectionRecord {
+  connection_id: string;
+  student_id: string;
+  connected_student_id: string;
+  status: ConnectionStatus;
+  requested_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchInsight {
+  score: number;
+  reasons: string[];
+}
+
+export interface StudentProfileDraft {
+  name: string;
+  branch: string;
+  year: string;
+  bio: string;
+  avatar: string;
+  interests: string[];
+  skills: string[];
+  lookingFor: string[];
+  availability: string[];
 }
 
 export interface SignalItem {
@@ -35,6 +89,8 @@ export interface SignalItem {
 
 export interface TeammateCandidate {
   id: string;
+  student_id: string;
+  auth_user_id: string;
   name: string;
   department: string;
   year: string;
@@ -46,6 +102,9 @@ export interface TeammateCandidate {
   lookingFor: string[];
   availability: string;
   matchReason: string;
+  matchReasonBullets: string[];
+  presenceLabel: 'Online now' | 'Active recently' | 'Offline';
+  relationshipStatus: 'connect' | 'pass' | 'pending' | 'connected' | 'incoming_pending';
 }
 
 export interface CampusEvent {

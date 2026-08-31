@@ -103,7 +103,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
           className="flex items-center gap-2 p-1 rounded-full hover:bg-white/10 border border-transparent hover:border-white/10 transition-all"
         >
           <img
-            src={user.avatarUrl}
+            src={user.avatarUrl || user.avatar}
             alt={user.name}
             className="w-8 h-8 rounded-full object-cover border border-white/20"
           />

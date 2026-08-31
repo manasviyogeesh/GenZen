@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserProfile } from '../../types';
 
 interface EditProfileModalProps {
@@ -14,14 +14,33 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   user,
   onSave
 }) => {
-  const [name, setName] = useState(user.name);
-  const [role, setRole] = useState(user.role);
-  const [department, setDepartment] = useState(user.department);
-  const [year, setYear] = useState(user.year);
-  const [skillsStr, setSkillsStr] = useState(user.skills.join(', '));
-  const [interestsStr, setInterestsStr] = useState(user.interests.join(', '));
-  const [lookingForStr, setLookingForStr] = useState(user.lookingFor.join(', '));
-  const [bio, setBio] = useState(user.bio);
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('');
+  const [branch, setBranch] = useState('');
+  const [year, setYear] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [skillsStr, setSkillsStr] = useState('');
+  const [interestsStr, setInterestsStr] = useState('');
+  const [lookingForStr, setLookingForStr] = useState('');
+  const [availabilityStr, setAvailabilityStr] = useState('');
+  const [bio, setBio] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setName(user.name);
+    setRole(user.role);
+    setBranch(user.branch || user.department);
+    setYear(user.year);
+    setAvatar(user.avatar || user.avatarUrl);
+    setSkillsStr(user.skills.join(', '));
+    setInterestsStr(user.interests.join(', '));
+    setLookingForStr(user.lookingFor.join(', '));
+    setAvailabilityStr(user.availability.join(', '));
+    setBio(user.bio);
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
@@ -31,11 +50,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       ...user,
       name: name.trim(),
       role: role.trim(),
-      department: department.trim(),
+      branch: branch.trim(),
+      department: branch.trim(),
       year: year.trim(),
+      avatar: avatar.trim(),
+      avatarUrl: avatar.trim(),
       skills: skillsStr.split(',').map((s) => s.trim()).filter(Boolean),
       interests: interestsStr.split(',').map((s) => s.trim()).filter(Boolean),
       lookingFor: lookingForStr.split(',').map((s) => s.trim()).filter(Boolean),
+      availability: availabilityStr.split(',').map((s) => s.trim()).filter(Boolean),
       bio: bio.trim()
     };
     onSave(updated);
@@ -88,12 +111,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
-                Department
+                Branch
               </label>
               <input
                 type="text"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
               />
             </div>
@@ -136,12 +159,36 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+              Avatar URL
+            </label>
+            <input
+              type="url"
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
               Looking For (comma separated)
             </label>
             <input
               type="text"
               value={lookingForStr}
               onChange={(e) => setLookingForStr(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+              Availability (comma separated)
+            </label>
+            <input
+              type="text"
+              value={availabilityStr}
+              onChange={(e) => setAvailabilityStr(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
             />
           </div>

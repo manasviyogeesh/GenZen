@@ -1,0 +1,6 @@
+command:
+  - node
+  - build-server/index.js
+env:
+  - name: NODE_ENV
+    value: production

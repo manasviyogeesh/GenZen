@@ -1,18 +1,4 @@
-import { UserProfile, SignalItem, TeammateCandidate, CampusEvent, ClubItem, SeniorQuestion, ChatMessage } from './types';
-
-export const currentUser: UserProfile = {
-  name: 'Manasvi Y',
-  role: 'UX Researcher',
-  year: '3rd Year',
-  department: 'CSE',
-  connectionsCount: 24,
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-  skills: ['Python', 'SQL', 'Java', 'UI/UX', 'ML Basics'],
-  interests: ['AI', 'Hackathons', 'Startups', 'Design'],
-  lookingFor: ['Project teammates', 'Hackathons', 'Research opportunities'],
-  availability: 'Weekends & Evenings',
-  bio: 'CSE 3rd Year student passionate about AI interfaces and collaborative builder culture.'
-};
+import { SignalItem, CampusEvent, ClubItem, SeniorQuestion, ChatMessage } from './types';
 
 export const initialSignals: SignalItem[] = [
   {
@@ -47,65 +33,6 @@ export const initialSignals: SignalItem[] = [
     timestamp: '4h ago',
     color: '#e08850',
     activeCount: 24
-  }
-];
-
-export const mockCandidates: TeammateCandidate[] = [
-  {
-    id: 'aarav-n',
-    name: 'Aarav N',
-    department: 'CSE',
-    year: '3rd Year',
-    matchScore: 94,
-    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
-    bio: '"Backend developer who loves building things at hackathons."',
-    skills: ['Python', 'FastAPI', 'AWS', 'Java'],
-    interests: ['AI', 'Hackathons', 'Startups'],
-    lookingFor: ['ML', 'UI/UX', 'Product'],
-    availability: 'Weekends',
-    matchReason: 'Overlap in AI & hackathons. Complementary backend/ML skills. Matching weekend availability.'
-  },
-  {
-    id: 'priya-s',
-    name: 'Priya S',
-    department: 'Design / CSE',
-    year: '3rd Year',
-    matchScore: 91,
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-    bio: '"UI/UX designer focused on intuitive AI interfaces & rapid prototyping."',
-    skills: ['Figma', 'React', 'Tailwind', 'Design Systems'],
-    interests: ['Design', 'AI', 'Hackathons'],
-    lookingFor: ['Backend', 'ML Engineers'],
-    availability: 'Weekdays 5-9pm & Weekends',
-    matchReason: 'Direct match for your UI/UX and product design collaboration needs.'
-  },
-  {
-    id: 'karthik-m',
-    name: 'Karthik M',
-    department: 'ISE',
-    year: '4th Year',
-    matchScore: 89,
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-    bio: '"Cloud architect & DevOps enthusiast with 2 hackathon podiums."',
-    skills: ['Docker', 'Kubernetes', 'GCP', 'Node.js'],
-    interests: ['Cloud Infrastructure', 'Distributed Systems'],
-    lookingFor: ['Fullstack Devs', 'Data Scientists'],
-    availability: 'Flexible',
-    matchReason: 'High infra capability to deploy high-scale projects seamlessly.'
-  },
-  {
-    id: 'rohan-v',
-    name: 'Rohan V',
-    department: 'Mechanical Eng',
-    year: '3rd Year',
-    matchScore: 86,
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-    bio: '"Building an autonomous agricultural rover and seeking ML engineers for vision models."',
-    skills: ['ROS', 'C++', 'CAD', 'Embedded Sensors'],
-    interests: ['AgriTech', 'Robotics', 'Computer Vision'],
-    lookingFor: ['Python', 'PyTorch', 'Edge AI'],
-    availability: 'Afternoons & Weekends',
-    matchReason: 'Serendipitous hardware-software cross-pollination match.'
   }
 ];
 

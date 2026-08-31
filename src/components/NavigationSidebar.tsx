@@ -6,13 +6,15 @@ interface NavigationSidebarProps {
   onNavigate: (screen: ScreenType) => void;
   onOpenCreateModal: () => void;
   user: UserProfile;
+  onLogout: () => void;
 }
 
 export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   currentScreen,
   onNavigate,
   onOpenCreateModal,
-  user
+  user,
+  onLogout
 }) => {
   const navItems: { id: ScreenType; label: string; icon: string; color: string }[] = [
     { id: 'home', label: 'Home', icon: 'home', color: 'text-white' },
@@ -158,7 +160,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group"
           >
             <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 shrink-0">
-              <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              <img src={user.avatarUrl || user.avatar} alt={user.name} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white truncate">{user.name}</p>
@@ -168,6 +170,14 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
               chevron_right
             </span>
           </div>
+
+          <button
+            onClick={onLogout}
+            className="w-full py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/80 hover:text-white flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[16px]">logout</span>
+            Logout
+          </button>
         </div>
       </aside>
     </>
