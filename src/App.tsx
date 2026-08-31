@@ -37,10 +37,43 @@ import { EditProfileModal } from './components/modals/EditProfileModal';
 import { TeamBuilderModal } from './components/modals/TeamBuilderModal';
 
 export function App() {
-  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  // ─── BYPASS START (login skip) ─────────────────────────────────────────────
+  // TODO on merge: restore the two lines below and delete the mock block.
+  // const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
+  // const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const MOCK_SESSION: AuthSession = {
+    auth_user_id: 'dev-user-001',
+    email: 'dev@genzen.local',
+    signed_in_at: new Date().toISOString(),
+  };
+  const MOCK_USER: UserProfile = {
+    student_id: 'stu-dev-001',
+    auth_user_id: 'dev-user-001',
+    email: 'dev@genzen.local',
+    name: 'Dev User',
+    role: 'Student',
+    year: '3rd Year',
+    branch: 'Computer Science',
+    department: 'Engineering',
+    connectionsCount: 12,
+    avatar: 'https://api.dicebear.com/7.x/thumbs/svg?seed=devuser',
+    avatarUrl: 'https://api.dicebear.com/7.x/thumbs/svg?seed=devuser',
+    skills: ['React', 'TypeScript', 'Python', 'Machine Learning'],
+    interests: ['Hackathons', 'Open Source', 'AI/ML'],
+    lookingFor: ['Teammates', 'Mentors'],
+    availability: ['Weekends', 'Evenings'],
+    bio: 'Dev bypass user — testing GenZen features.',
+    clubs: ['AI & ML Club'],
+    events: [],
+    connections: [],
+    created_at: new Date().toISOString(),
+    last_active: new Date().toISOString(),
+  };
+  const [session, setSession] = useState<AuthSession | null>(MOCK_SESSION);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
+  // ─── BYPASS END ────────────────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(MOCK_USER);
   const [setupSuccessProfile, setSetupSuccessProfile] = useState<UserProfile | null>(null);
   const [connectCandidates, setConnectCandidates] = useState<TeammateCandidate[]>([]);
   const [connectedCount, setConnectedCount] = useState(0);
@@ -354,34 +387,34 @@ export function App() {
     showToast(`Invitation dispatched to ${name}!`);
   };
 
-  if (isBootstrapping) {
-    return <div className="min-h-screen bg-[#0d0c0f]" />;
-  }
-
-  if (!session) {
-    return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} />;
-  }
-
-  if (setupSuccessProfile) {
-    return (
-      <ProfileSetupSuccessScreen
-        profile={setupSuccessProfile}
-        onContinue={() => {
-          setSetupSuccessProfile(null);
-          setCurrentScreen('connect');
-        }}
-      />
-    );
-  }
-
-  if (!user) {
-    return (
-      <ProfileSetupScreen
-        email={session.email}
-        onComplete={handleCreateProfile}
-      />
-    );
-  }
+  // ─── BYPASS START (auth gate renders) ─────────────────────────────────────
+  // TODO on merge: restore the original if-blocks below (remove the comments).
+  // if (isBootstrapping) {
+  //   return <div className="min-h-screen bg-[#0d0c0f]" />;
+  // }
+  // if (!session) {
+  //   return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} />;
+  // }
+  // if (setupSuccessProfile) {
+  //   return (
+  //     <ProfileSetupSuccessScreen
+  //       profile={setupSuccessProfile}
+  //       onContinue={() => {
+  //         setSetupSuccessProfile(null);
+  //         setCurrentScreen('connect');
+  //       }}
+  //     />
+  //   );
+  // }
+  // if (!user) {
+  //   return (
+  //     <ProfileSetupScreen
+  //       email={session.email}
+  //       onComplete={handleCreateProfile}
+  //     />
+  //   );
+  // }
+  // ─── BYPASS END ────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
@@ -463,8 +496,6 @@ export function App() {
           {currentScreen === 'ai' && (
             <GenZenAIScreen
               user={user}
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
               onNavigate={handleNavigate}
               onOpenTeamBuilder={() => setIsTeamBuilderModalOpen(true)}
             />
