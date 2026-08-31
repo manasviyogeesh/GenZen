@@ -1,32 +1,139 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CampusEvent, ScreenType } from '../../types';
+import { eventsService } from '../../services/eventsService';
 
 interface EventsScreenProps {
   events: CampusEvent[];
   onNavigate: (screen: ScreenType) => void;
   onOpenCreateModal: () => void;
+  onEventCreated?: () => void;
 }
 
 export const EventsScreen: React.FC<EventsScreenProps> = ({
-  events,
+  events: propEvents,
   onNavigate,
-  onOpenCreateModal
+  onOpenCreateModal,
+  onEventCreated
 }) => {
-  const [selectedDay, setSelectedDay] = useState<number | null>(2);
+  // Current date state
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1); // 1-based month
+
+  // Events and filtering state
+  const [events, setEvents] = useState<CampusEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('All');
-  const [registeredEventIds, setRegisteredEventIds] = useState<string[]>(['evt-2']);
+  const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
   const [registeredNotice, setRegisteredNotice] = useState<string | null>(null);
 
-  // Month days structure for October (Starts on Sunday = Day 1)
-  // Mon: - , Tue: - , Wed: - , Thu: - , Fri: - , Sat: - , Sun: 1
-  const calendarDays = [
-    { day: null }, { day: null }, { day: null }, { day: null }, { day: null }, { day: null }, { day: 1 },
-    { day: 2 }, { day: 3 }, { day: 4 }, { day: 5 }, { day: 6 }, { day: 7 }, { day: 8 },
-    { day: 9 }, { day: 10 }, { day: 11 }, { day: 12 }, { day: 13 }, { day: 14 }, { day: 15 },
-    { day: 16 }, { day: 17 }, { day: 18 }, { day: 19 }, { day: 20 }, { day: 21 }, { day: 22 },
-    { day: 23 }, { day: 24 }, { day: 25 }, { day: 26 }, { day: 27 }, { day: 28 }, { day: 29 },
-    { day: 30 }, { day: 31 }, { day: null }, { day: null }, { day: null }, { day: null }, { day: null }
+  // Fetch events when month/year changes
+  useEffect(() => {
+    let active = true;
+    const fetchEvents = async () => {
+      setLoading(true);
+      try {
+        const fetchedEvents = await eventsService.getEventsByMonth(currentYear, currentMonth);
+        if (active) {
+          setEvents(fetchedEvents);
+        }
+      } catch (error) {
+        console.error('Failed to fetch events:', error);
+        if (active) {
+          setEvents([]);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [currentYear, currentMonth]);
+
+  // Sync any newly added event from props instantly
+  useEffect(() => {
+    if (propEvents && propEvents.length > 0) {
+      setEvents((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        const newEventsToAdd = propEvents.filter((e) => !existingIds.has(e.id));
+        if (newEventsToAdd.length > 0) {
+          return [...newEventsToAdd, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [propEvents]);
+
+  // Generate calendar days for the current month
+  const generateCalendarDays = () => {
+    const firstDay = new Date(currentYear, currentMonth - 1, 1);
+    const lastDay = new Date(currentYear, currentMonth, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+    const days: Array<{ day: number | null }> = [];
+
+    // Add empty cells for days before the 1st (Monday start)
+    const mondayStart = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+    for (let i = 0; i < mondayStart; i++) {
+      days.push({ day: null });
+    }
+
+    // Add actual days
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push({ day });
+    }
+
+    // Pad to complete the grid (42 cells = 6 rows)
+    while (days.length < 42) {
+      days.push({ day: null });
+    }
+
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+
+  // Month names
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  // Navigation functions
+  const goToPreviousMonth = () => {
+    if (currentMonth === 1) {
+      setCurrentMonth(12);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+    setSelectedDay(null);
+  };
+
+  const goToNextMonth = () => {
+    if (currentMonth === 12) {
+      setCurrentMonth(1);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+    setSelectedDay(null);
+  };
+
+  const goToToday = () => {
+    const todayDate = new Date();
+    setCurrentYear(todayDate.getFullYear());
+    setCurrentMonth(todayDate.getMonth() + 1);
+    setSelectedDay(todayDate.getDate());
+  };
 
   const getEventForDay = (day: number) => {
     return events.find((e) => e.day === day);
@@ -106,19 +213,27 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
           <div className="glass-card rounded-3xl p-6 md:p-8 flex flex-col border border-white/10">
             {/* Calendar Header */}
             <div className="flex items-center justify-between mb-8">
-              <h2 className="font-headline text-3xl font-bold text-white">October 2023</h2>
+              <h2 className="font-headline text-3xl font-bold text-white">
+                {monthNames[currentMonth - 1]} {currentYear}
+              </h2>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setSelectedDay(2)}
+                  onClick={goToToday}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#f0a878] hover:bg-white/5 transition-colors border border-[#f0a878]/30"
                 >
                   Today
                 </button>
                 <div className="flex items-center gap-1">
-                  <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
+                  <button
+                    onClick={goToPreviousMonth}
+                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"
+                  >
                     <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                   </button>
-                  <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
+                  <button
+                    onClick={goToNextMonth}
+                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"
+                  >
                     <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                   </button>
                 </div>
@@ -180,27 +295,31 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
 
             {selectedDay !== null && (
               <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-white/60">
-                <span>Filtering by October {selectedDay}, 2023</span>
+                <span>Filtering by {monthNames[currentMonth - 1]} {selectedDay}, {currentYear}</span>
                 <button
                   onClick={() => setSelectedDay(null)}
                   className="text-[#f0a878] hover:underline font-semibold"
                 >
-                  Show all October events
+                  Show all {monthNames[currentMonth - 1]} events
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Events This October List (4 cols) */}
+        {/* Events This Month List (4 cols) */}
         <div className="lg:col-span-4 flex flex-col gap-5">
           <div className="flex items-center justify-between">
-            <h3 className="font-headline text-2xl font-bold text-white">Events this October</h3>
+            <h3 className="font-headline text-2xl font-bold text-white">Events this {monthNames[currentMonth - 1]}</h3>
             <span className="text-xs text-white/50">{filteredEvents.length} events</span>
           </div>
 
           <div className="space-y-4 max-h-[640px] overflow-y-auto custom-scrollbar pr-1">
-            {filteredEvents.length === 0 ? (
+            {loading ? (
+              <div className="glass-card rounded-2xl p-8 text-center text-white/50 text-sm">
+                Loading events...
+              </div>
+            ) : filteredEvents.length === 0 ? (
               <div className="glass-card rounded-2xl p-8 text-center text-white/50 text-sm">
                 No events found for this filter.
               </div>
@@ -214,7 +333,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                   >
                     {/* Date Block */}
                     <div className="w-16 h-16 rounded-xl bg-white/5 flex-shrink-0 flex flex-col items-center justify-center border border-white/10 group-hover:border-[#c2652a]/30 transition-colors">
-                      <span className="text-[11px] text-white/50 font-bold uppercase">Oct</span>
+                      <span className="text-[11px] text-white/50 font-bold uppercase">{monthNames[currentMonth - 1].slice(0, 3)}</span>
                       <span className="font-headline text-2xl font-bold leading-none" style={{ color: evt.dotColor }}>
                         {evt.day}
                       </span>

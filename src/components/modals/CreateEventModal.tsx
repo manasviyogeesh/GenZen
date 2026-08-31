@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CampusEvent } from '../../types';
+import { eventsService } from '../../services/eventsService';
 
 interface CreateEventModalProps {
   isOpen: boolean;
@@ -14,42 +15,74 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [day, setDay] = useState(15);
+  const [month, setMonth] = useState(9); // September
+  const [year, setYear] = useState(2026);
   const [time, setTime] = useState('16:00 - 18:00');
+  const [startTime, setStartTime] = useState('16:00');
+  const [endTime, setEndTime] = useState('18:00');
   const [category, setCategory] = useState<'Workshop' | 'Networking' | 'Club Event' | 'Hackathon' | 'Career'>('Workshop');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const categoryColorMap: Record<string, { bg: string; dot: string }> = {
-      Workshop: { bg: 'bg-[#c2652a]/20 text-[#f0a878] border-[#c2652a]/30', dot: '#f0a878' },
-      Networking: { bg: 'bg-pink-500/20 text-pink-300 border-pink-500/30', dot: '#ec4899' },
-      'Club Event': { bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', dot: '#06b6d4' },
-      Hackathon: { bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30', dot: '#f59e0b' },
-      Career: { bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30', dot: '#8b5cf6' }
-    };
+    setIsSubmitting(true);
+    setError(null);
 
-    const config = categoryColorMap[category] || categoryColorMap.Workshop;
+    try {
+      // Format date as YYYY-MM-DD
+      const eventDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    const newEvt: CampusEvent = {
-      id: `evt-${Date.now()}`,
-      day: Number(day),
-      title: title.trim(),
-      time,
-      category,
-      categoryColor: config.bg,
-      dotColor: config.dot,
-      location: location.trim() || 'Campus Center',
-      description: description.trim() || undefined,
-      attendeesCount: 1
-    };
+      // Create event via API
+      const newEvent = await eventsService.createEvent({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        event_date: eventDate,
+        start_time: startTime || undefined,
+        end_time: endTime || undefined,
+        category,
+        location: location.trim() || undefined,
+        created_by: 'current_user', // TODO: Replace with actual user ID from auth
+      });
 
-    onAddEvent(newEvt);
-    onClose();
+      // Call parent callback with new event
+      onAddEvent(newEvent);
+
+      // Reset form and close
+      setTitle('');
+      setDay(15);
+      setMonth(9);
+      setYear(2026);
+      setTime('16:00 - 18:00');
+      setStartTime('16:00');
+      setEndTime('18:00');
+      setCategory('Workshop');
+      setLocation('');
+      setDescription('');
+      onClose();
+    } catch (err) {
+      console.error('Failed to create event:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create event. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Update time display when start/end times change
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setTime(`${value} - ${endTime}`);
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setTime(`${startTime} - ${value}`);
   };
 
   return (
@@ -63,10 +96,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:text-white"
+            disabled={isSubmitting}
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
+
+        {error && (
+          <div className="px-4 py-3 bg-red-500/20 border border-red-500/40 text-red-200 rounded-xl text-sm">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -80,13 +120,14 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. AI & Robotics Lightning Talks"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#c2652a]"
+              disabled={isSubmitting}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
-                Day of October
+                Day
               </label>
               <input
                 type="number"
@@ -95,9 +136,80 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 value={day}
                 onChange={(e) => setDay(Math.max(1, Math.min(31, Number(e.target.value))))}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+                Month
+              </label>
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
+              >
+                <option value="1" className="bg-[#16151b]">Jan</option>
+                <option value="2" className="bg-[#16151b]">Feb</option>
+                <option value="3" className="bg-[#16151b]">Mar</option>
+                <option value="4" className="bg-[#16151b]">Apr</option>
+                <option value="5" className="bg-[#16151b]">May</option>
+                <option value="6" className="bg-[#16151b]">Jun</option>
+                <option value="7" className="bg-[#16151b]">Jul</option>
+                <option value="8" className="bg-[#16151b]">Aug</option>
+                <option value="9" className="bg-[#16151b]">Sep</option>
+                <option value="10" className="bg-[#16151b]">Oct</option>
+                <option value="11" className="bg-[#16151b]">Nov</option>
+                <option value="12" className="bg-[#16151b]">Dec</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+                Year
+              </label>
+              <input
+                type="number"
+                min="2026"
+                max="2030"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+                Start Time
+              </label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
+                End Time
+              </label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => handleEndTimeChange(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
                 Category
@@ -106,6 +218,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 value={category}
                 onChange={(e) => setCategory(e.target.value as any)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
               >
                 <option value="Workshop" className="bg-[#16151b]">Workshop</option>
                 <option value="Hackathon" className="bg-[#16151b]">Hackathon</option>
@@ -113,21 +226,6 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 <option value="Club Event" className="bg-[#16151b]">Club Event</option>
                 <option value="Career" className="bg-[#16151b]">Career</option>
               </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
-                Time Window
-              </label>
-              <input
-                type="text"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                placeholder="15:00 - 17:30"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
-              />
             </div>
 
             <div>
@@ -140,6 +238,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="CS Seminar Hall"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#c2652a]"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -154,6 +253,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Provide agenda or requirements..."
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#c2652a] resize-none"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -162,14 +262,16 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 text-sm font-semibold text-white/70 hover:text-white"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-[#c2652a] hover:bg-[#b05721] text-white rounded-xl text-sm font-bold shadow-md active:scale-95"
+              className="px-6 py-2 bg-[#c2652a] hover:bg-[#b05721] text-white rounded-xl text-sm font-bold shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
             >
-              Publish Event
+              {isSubmitting ? 'Creating...' : 'Publish Event'}
             </button>
           </div>
         </form>

@@ -45,7 +45,7 @@ export function App() {
   const [connectCandidates, setConnectCandidates] = useState<TeammateCandidate[]>([]);
   const [connectedCount, setConnectedCount] = useState(0);
   const [recentConnections, setRecentConnections] = useState<Array<{ id: string; name: string; relation: string; avatar: string }>>([]);
-  const [events, setEvents] = useState<CampusEvent[]>(mockEvents);
+  const [events, setEvents] = useState<CampusEvent[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
   const [questions, setQuestions] = useState<SeniorQuestion[]>(mockQuestions);
   const [searchQuery, setSearchQuery] = useState('');
@@ -377,11 +377,35 @@ export function App() {
   if (!user) {
     return (
       <ProfileSetupScreen
-        email={session.email}
+        email={session?.email || 'test@example.com'}
         onComplete={handleCreateProfile}
       />
     );
   }
+
+  const currentUser: UserProfile = user || {
+    student_id: 'test-user-001',
+    auth_user_id: 'test-auth-001',
+    email: session?.email || 'test@example.com',
+    name: 'Test Student',
+    role: 'Student',
+    year: '3rd Year',
+    branch: 'Computer Science',
+    department: 'Engineering',
+    connectionsCount: 0,
+    avatar: '',
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
+    skills: ['Python', 'SQL'],
+    interests: ['Databricks', 'Events'],
+    lookingFor: ['Teammates'],
+    availability: ['Weekdays'],
+    bio: 'Testing events page',
+    clubs: [],
+    events: [],
+    connections: [],
+    created_at: new Date().toISOString(),
+    last_active: new Date().toISOString()
+  };
 
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
@@ -405,7 +429,7 @@ export function App() {
         currentScreen={currentScreen}
         onNavigate={handleNavigate}
         onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
-        user={user}
+        user={currentUser}
         onLogout={handleLogout}
       />
 
@@ -413,7 +437,7 @@ export function App() {
       <div className="md:pl-64 flex flex-col flex-1 pb-16 md:pb-0">
         {/* Top App Bar (on non-AI screen or shared across views) */}
         <TopAppBar
-          user={user}
+          user={currentUser}
           onNavigate={handleNavigate}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -423,7 +447,7 @@ export function App() {
         <main className="flex-1 md:pt-16">
           {currentScreen === 'home' && (
             <HomeScreen
-              user={user}
+              user={currentUser}
               signals={initialSignals}
               onNavigate={handleNavigate}
               onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
@@ -433,7 +457,7 @@ export function App() {
 
           {currentScreen === 'connect' && (
             <ConnectScreen
-              user={user}
+              user={currentUser}
               candidates={connectCandidates}
               onNavigate={handleNavigate}
               onOpenTeamBuilder={() => setIsTeamBuilderModalOpen(true)}
@@ -447,7 +471,7 @@ export function App() {
 
           {currentScreen === 'pulse' && (
             <CampusPulseScreen
-              user={user}
+              user={currentUser}
               onNavigate={handleNavigate}
             />
           )}
@@ -462,7 +486,7 @@ export function App() {
 
           {currentScreen === 'ai' && (
             <GenZenAIScreen
-              user={user}
+              user={currentUser}
               messages={chatMessages}
               onSendMessage={handleSendMessage}
               onNavigate={handleNavigate}
@@ -472,7 +496,7 @@ export function App() {
 
           {currentScreen === 'senior_pov' && (
             <SeniorPOVScreen
-              user={user}
+              user={currentUser}
               questions={questions}
               onNavigate={handleNavigate}
               onAskQuestion={handleAskQuestion}
@@ -481,7 +505,7 @@ export function App() {
 
           {currentScreen === 'clubs' && (
             <ClubsScreen
-              user={user}
+              user={currentUser}
               clubs={mockClubs}
               onNavigate={handleNavigate}
               onOpenCreateClub={() => setIsCreateEventModalOpen(true)}
@@ -500,7 +524,7 @@ export function App() {
       <EditProfileModal
         isOpen={isEditProfileModalOpen}
         onClose={() => setIsEditProfileModalOpen(false)}
-        user={user}
+        user={currentUser}
         onSave={(updated) => {
           if (!session) {
             return;
@@ -508,7 +532,7 @@ export function App() {
 
           void (async () => {
             try {
-              const saved = await studentService.updateStudentProfile(user.student_id, updated);
+              const saved = await studentService.updateStudentProfile(currentUser.student_id, updated);
               await hydrateConnectData(saved);
               showToast('Profile updated successfully.');
               setErrorMessage(null);
