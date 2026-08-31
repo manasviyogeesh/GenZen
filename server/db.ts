@@ -35,6 +35,14 @@ const port = parsePort(process.env.PGPORT, 5432);
 const databricksHost = process.env.DATABRICKS_HOST;
 const clientId = process.env.DATABRICKS_CLIENT_ID;
 const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
+
+// IMPORTANT:
+// For Lakebase Autoscaling this is supplied by app.yaml
+// using:
+//   valueFrom: postgres
+//
+// It resolves to:
+// projects/<project>/branches/<branch>/endpoints/<endpoint>
 const endpointName = process.env.ENDPOINT_NAME;
 
 const sslMode = (process.env.PGSSLMODE || '').toLowerCase();
@@ -53,7 +61,7 @@ export const hasDbConfig = Boolean(
 );
 
 // ---------------------------------------------------------
-// Cached Databricks OAuth token
+// Cached Databricks workspace OAuth token
 // ---------------------------------------------------------
 
 let workspaceToken: {
@@ -75,7 +83,7 @@ let postgresToken: {
 // ---------------------------------------------------------
 
 const getWorkspaceToken = async (): Promise<string> => {
-  // Reuse token if it is still valid for at least 5 minutes
+  // Reuse token if valid for at least 5 minutes
   if (
     workspaceToken &&
     Date.now() < workspaceToken.expiresAt - 5 * 60 * 1000
@@ -89,7 +97,7 @@ const getWorkspaceToken = async (): Promise<string> => {
     !clientSecret
   ) {
     throw new Error(
-      'Missing Databricks authentication environment variables'
+      'Missing DATABRICKS_HOST, DATABRICKS_CLIENT_ID, or DATABRICKS_CLIENT_SECRET'
     );
   }
 
@@ -144,6 +152,7 @@ const getWorkspaceToken = async (): Promise<string> => {
 
 const getPostgresCredential =
   async (): Promise<string> => {
+
     // Reuse credential if valid for at least 5 minutes
     if (
       postgresToken &&
@@ -153,12 +162,15 @@ const getPostgresCredential =
       return postgresToken.token;
     }
 
-    if (
-      !databricksHost ||
-      !endpointName
-    ) {
+    if (!databricksHost) {
       throw new Error(
-        'Missing DATABRICKS_HOST or ENDPOINT_NAME'
+        'Missing DATABRICKS_HOST'
+      );
+    }
+
+    if (!endpointName) {
+      throw new Error(
+        'Missing ENDPOINT_NAME. Check app.yaml and make sure the Lakebase resource is referenced with valueFrom: postgres.'
       );
     }
 
@@ -194,14 +206,24 @@ const getPostgresCredential =
     const data = (await response.json()) as {
       token: string;
       expires_in?: number;
+      expire_time?: string;
     };
+
+    let expiresAt: number;
+
+    if (data.expire_time) {
+      expiresAt =
+        new Date(data.expire_time).getTime();
+    } else {
+      expiresAt =
+        Date.now() +
+        (data.expires_in ?? 3600) * 1000;
+    }
 
     postgresToken = {
       token: data.token,
 
-      expiresAt:
-        Date.now() +
-        (data.expires_in ?? 3600) * 1000
+      expiresAt
     };
 
     return postgresToken.token;
@@ -222,9 +244,10 @@ export const pool = new Pool({
    * instead of a permanent PostgreSQL password.
    */
   password: async () => {
+
     /*
-     * Keep support for a local PGPASSWORD if one
-     * is configured during development.
+     * Keep support for a local PGPASSWORD
+     * during development.
      */
     if (process.env.PGPASSWORD) {
       return process.env.PGPASSWORD;
@@ -264,6 +287,7 @@ export const getTableColumns = async (
   tableName: string,
   tableSchema = 'public'
 ): Promise<TableColumn[]> => {
+
   const result =
     await query<TableColumn>(
       `
