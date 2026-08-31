@@ -32,7 +32,14 @@ const database = process.env.PGDATABASE;
 const user = process.env.PGUSER;
 const port = parsePort(process.env.PGPORT, 5432);
 
-const databricksHost = process.env.DATABRICKS_HOST;
+const databricksHost = process.env.DATABRICKS_HOST
+  ? (
+      process.env.DATABRICKS_HOST.startsWith('http://') ||
+      process.env.DATABRICKS_HOST.startsWith('https://')
+        ? process.env.DATABRICKS_HOST
+        : `https://${process.env.DATABRICKS_HOST}`
+    )
+  : undefined;
 const clientId = process.env.DATABRICKS_CLIENT_ID;
 const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
 
