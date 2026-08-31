@@ -5,17 +5,22 @@ interface EventsScreenProps {
   events: CampusEvent[];
   onNavigate: (screen: ScreenType) => void;
   onOpenCreateModal: () => void;
+  onToggleRsvp?: (eventId: string, title: string, registered: boolean) => Promise<void>;
+  searchQuery?: string;
 }
 
 export const EventsScreen: React.FC<EventsScreenProps> = ({
   events,
   onNavigate,
-  onOpenCreateModal
+  onOpenCreateModal,
+  onToggleRsvp,
+  searchQuery = ''
 }) => {
   const [selectedDay, setSelectedDay] = useState<number | null>(2);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('All');
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>(['evt-2']);
   const [registeredNotice, setRegisteredNotice] = useState<string | null>(null);
+  const [isRsvpPending, setIsRsvpPending] = useState<string | null>(null);
 
   // Month days structure for October (Starts on Sunday = Day 1)
   // Mon: - , Tue: - , Wed: - , Thu: - , Fri: - , Sat: - , Sun: 1
@@ -34,17 +39,27 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
 
   const filteredEvents = events.filter((e) => {
     const matchesCategory = activeCategoryFilter === 'All' || e.category === activeCategoryFilter;
+    const matchesSearch = !searchQuery.trim() || `${e.title} ${e.category} ${e.location ?? ''}`.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDay = selectedDay === null || e.day === selectedDay;
-    return matchesCategory && (selectedDay === null ? true : matchesDay);
+    return matchesCategory && matchesSearch && (selectedDay === null ? true : matchesDay);
   });
 
-  const toggleRegister = (eventId: string, title: string) => {
-    if (registeredEventIds.includes(eventId)) {
-      setRegisteredEventIds(registeredEventIds.filter(id => id !== eventId));
-      setRegisteredNotice(`Cancelled RSVP for "${title}"`);
-    } else {
-      setRegisteredEventIds([...registeredEventIds, eventId]);
-      setRegisteredNotice(`🎉 Successfully RSVP'd for "${title}"! Added to your schedule.`);
+  const toggleRegister = async (eventId: string, title: string) => {
+    const registered = registeredEventIds.includes(eventId);
+    setIsRsvpPending(eventId);
+    try {
+      if (onToggleRsvp) await onToggleRsvp(eventId, title, registered);
+      if (registered) {
+        setRegisteredEventIds((ids) => ids.filter(id => id !== eventId));
+        setRegisteredNotice(`Cancelled RSVP for "${title}"`);
+      } else {
+        setRegisteredEventIds((ids) => [...ids, eventId]);
+        setRegisteredNotice(`🎉 Successfully RSVP'd for "${title}"! Added to your schedule.`);
+      }
+    } catch (error) {
+      setRegisteredNotice(error instanceof Error ? error.message : 'Unable to update RSVP.');
+    } finally {
+      setIsRsvpPending(null);
     }
     setTimeout(() => setRegisteredNotice(null), 3000);
   };
@@ -67,7 +82,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            {['All', 'Workshop', 'Hackathon', 'Networking'].map((cat) => (
+            {['All', 'Workshop', 'Hackathon', 'Networking', 'Club Event', 'Career'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategoryFilter(cat)}
@@ -115,10 +130,10 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                   Today
                 </button>
                 <div className="flex items-center gap-1">
-                  <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
+                  <button onClick={() => { setSelectedDay(null); setActiveCategoryFilter('All'); }} aria-label="Previous month" className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                   </button>
-                  <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
+                  <button onClick={() => { setSelectedDay(null); setActiveCategoryFilter('All'); }} aria-label="Next month" className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                   </button>
                 </div>
@@ -230,6 +245,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                           <span className="material-symbols-outlined text-[14px]">schedule</span>
                           <span>{evt.time}</span>
                         </p>
+                        {evt.location && <p className="text-xs text-white/45 flex items-center gap-1.5 mb-2"><span className="material-symbols-outlined text-[14px]">location_on</span><span className="truncate">{evt.location}</span></p>}
                       </div>
 
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
@@ -240,14 +256,15 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                         </span>
 
                         <button
-                          onClick={() => toggleRegister(evt.id, evt.title)}
+                          onClick={() => void toggleRegister(evt.id, evt.title)}
+                          disabled={isRsvpPending === evt.id}
                           className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors ${
                             isRegistered
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               : 'bg-white/5 hover:bg-white/15 text-white'
                           }`}
                         >
-                          {isRegistered ? 'Going ✓' : 'RSVP'}
+                          {isRsvpPending === evt.id ? 'Saving…' : isRegistered ? 'Going ✓' : 'RSVP'}
                         </button>
                       </div>
                     </div>

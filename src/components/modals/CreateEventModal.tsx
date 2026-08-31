@@ -4,7 +4,7 @@ import { CampusEvent } from '../../types';
 interface CreateEventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddEvent: (event: CampusEvent) => void;
+  onAddEvent: (event: CampusEvent) => void | Promise<void>;
 }
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({
@@ -18,12 +18,16 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const [category, setCategory] = useState<'Workshop' | 'Networking' | 'Club Event' | 'Hackathon' | 'Career'>('Workshop');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
 
     const categoryColorMap: Record<string, { bg: string; dot: string }> = {
       Workshop: { bg: 'bg-[#c2652a]/20 text-[#f0a878] border-[#c2652a]/30', dot: '#f0a878' },
@@ -48,8 +52,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
       attendeesCount: 1
     };
 
-    onAddEvent(newEvt);
-    onClose();
+    try {
+      await onAddEvent(newEvt);
+      setTitle('');
+      setLocation('');
+      setDescription('');
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to publish event.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,6 +82,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {submitError && <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">{submitError}</p>}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1">
               Event Title
@@ -161,15 +175,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="px-4 py-2 text-sm font-semibold text-white/70 hover:text-white"
             >
               Cancel
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               className="px-6 py-2 bg-[#c2652a] hover:bg-[#b05721] text-white rounded-xl text-sm font-bold shadow-md active:scale-95"
             >
-              Publish Event
+              {isSubmitting ? 'Publishing…' : 'Publish Event'}
             </button>
           </div>
         </form>

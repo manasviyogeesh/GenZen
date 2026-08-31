@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScreenType, UserProfile, CampusEvent, ChatMessage, SeniorQuestion } from './types';
 import {
   currentUser,
@@ -21,6 +21,7 @@ import { ClubsScreen } from './components/screens/ClubsScreen';
 import { CreateEventModal } from './components/modals/CreateEventModal';
 import { EditProfileModal } from './components/modals/EditProfileModal';
 import { TeamBuilderModal } from './components/modals/TeamBuilderModal';
+import { createEvent, loadEvents, toggleEventRsvp } from './services/eventsApi';
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
@@ -47,9 +48,22 @@ export function App() {
   };
 
   const handleAddEvent = (newEvent: CampusEvent) => {
-    setEvents([newEvent, ...events]);
-    showToast(`🎉 Event "${newEvent.title}" published!`);
+    return createEvent(newEvent).then(() => {
+      setEvents((previous) => [newEvent, ...previous]);
+      showToast(`🎉 Event "${newEvent.title}" published!`);
+    }).catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : 'Unable to publish event.');
+      throw error;
+    });
   };
+
+  useEffect(() => {
+    loadEvents().then((storedEvents) => {
+      if (storedEvents.length) setEvents(storedEvents);
+    }).catch(() => {
+      // Demo data remains visible when the optional server is not running.
+    });
+  }, []);
 
   const handleSendMessage = (text: string) => {
     const userMsg: ChatMessage = {
@@ -142,6 +156,11 @@ export function App() {
         currentScreen={currentScreen}
         onNavigate={handleNavigate}
         onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
+        searchQuery={searchQuery}
+        onToggleRsvp={async (eventId, title, registered) => {
+          await toggleEventRsvp(eventId, registered);
+          showToast(registered ? `RSVP cancelled for "${title}".` : `RSVP confirmed for "${title}".`);
+        }}
         user={user}
       />
 
