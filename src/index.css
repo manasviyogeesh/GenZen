@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "EB Garamond", serif;
+  --font-display: "EB Garamond", serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+  
+  --color-primary: #c2652a;
+  --color-primary-hover: #b05721;
+  --color-primary-container: #e08850;
+  --color-primary-fixed: #fbe8d8;
+  --color-primary-fixed-dim: #f0a878;
+  --color-custom-dark: #0f0e11;
+  --color-custom-dark-card: rgba(26, 25, 30, 0.7);
+}
+
+body {
+  font-family: 'Manrope', sans-serif;
+  background-color: #0d0c0f;
+  color: #f5f1eb;
+}
+
+h1, h2, h3, h4, h5, h6, .font-headline, .font-display {
+  font-family: 'EB Garamond', serif;
+}
+
+.glass-card {
+  background: rgba(24, 23, 28, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.custom-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.custom-scrollbar,
+.hide-scrollbar,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

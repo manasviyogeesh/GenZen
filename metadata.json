@@ -1,0 +1,6 @@
+{
+  "name": "GenZen - Campus Intelligence",
+  "description": "GenZen is an AI-powered campus intelligence and community platform connecting students with peers, clubs, events, signals, and senior wisdom.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
