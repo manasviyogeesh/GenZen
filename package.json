@@ -9,7 +9,7 @@
     "dev:server": "tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "node node_modules/typescript/bin/tsc -p tsconfig.server.json",
+    "build:server": "node ./node_modules/typescript/lib/tsc.js -p tsconfig.server.json",
     "start": "node build-server/index.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
