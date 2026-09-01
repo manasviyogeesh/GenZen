@@ -12,15 +12,18 @@
     "build:server": "node ./node_modules/typescript/lib/tsc.js -p tsconfig.server.json",
     "start": "node build-server/index.js",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "server": "node server.js",
+    "server:dev": "node --watch server.js"
   },
   "dependencies": {
-    "@databricks/sql": "^2.0.0",
+    "@databricks/sdk-postgres": "^0.46.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
-    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "axios": "^1.20.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
@@ -29,7 +32,6 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "typescript": "^5.8.3",
-    "uuid": "^14.0.2",
     "vite": "^6.2.3"
   },
   "devDependencies": {

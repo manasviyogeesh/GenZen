@@ -1,48 +1,102 @@
-import React, { useState } from 'react';
-import { UserProfile, ChatMessage, ScreenType } from '../../types';
+import React, { useRef, useEffect, useState } from 'react';
+import { UserProfile, ScreenType } from '../../types';
+
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+interface Message {
+  id: string;
+  sender: 'user' | 'ai' | 'error';
+  text: string;
+  suggestedQuestions?: string[];
+}
 
 interface GenZenAIScreenProps {
   user: UserProfile;
-  messages: ChatMessage[];
-  onSendMessage: (text: string) => void;
   onNavigate: (screen: ScreenType) => void;
   onOpenTeamBuilder: () => void;
 }
 
+const BACKEND_URL = 'http://localhost:4000/api/genzen/ask';
+
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
   user,
-  messages,
-  onSendMessage,
   onNavigate,
-  onOpenTeamBuilder
+  onOpenTeamBuilder,
 }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const suggestedChips = [
-    { label: 'Find my hackathon team', icon: '🤝', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
-    { label: 'Which club should I join?', icon: '🏫', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
-    { label: 'What do seniors recommend?', icon: '👴', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
-    { label: "What's happening this week?", icon: '📅', prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
+    { label: 'Find my hackathon team', icon: 'ðŸ¤', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
+    { label: 'Which club should I join?', icon: 'ðŸ«', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
+    { label: 'What do seniors recommend?', icon: 'ðŸ‘´', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
+    { label: "What's happening this week?", icon: 'ðŸ“…', prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
   ];
+
+  const submitQuestion = async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || isLoading) return;
+
+    // Add user message immediately
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: trimmed,
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInputText('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: trimmed }),
+        signal: AbortSignal.timeout(40_000), // 40s client-side timeout
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error ?? `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        sender: 'ai',
+        text: data.answer ?? "I couldn't generate a clear answer for that.",
+        suggestedQuestions: Array.isArray(data.suggestedQuestions) && data.suggestedQuestions.length > 0
+          ? data.suggestedQuestions
+          : undefined,
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (err) {
+      const isTimeout = err instanceof Error && err.name === 'TimeoutError';
+      const errMsg: Message = {
+        id: `err-${Date.now()}`,
+        sender: 'error',
+        text: isTimeout
+          ? "GenZen took too long to respond. Please try again in a moment."
+          : "Something went wrong reaching the backend. Make sure the server is running and try again.",
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim()) return;
-
-    const query = inputText.trim();
-    setInputText('');
-    setIsTyping(true);
-
-    onSendMessage(query);
-
-    setTimeout(() => {
-      setIsTyping(false);
-    }, 800);
-  };
-
-  const handleChipClick = (prompt: string) => {
-    setInputText(prompt);
+    submitQuestion(inputText);
   };
 
   return (
@@ -73,96 +127,35 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                 <div className="bg-[#1c1c22] text-white/90 rounded-3xl rounded-tr-sm px-6 py-4 max-w-2xl border border-white/10 shadow-xl text-base leading-relaxed">
                   <p>{msg.text}</p>
                 </div>
+              ) : msg.sender === 'error' ? (
+                <div className="bg-rose-500/10 border border-rose-400/25 rounded-3xl rounded-tl-sm px-6 py-4 max-w-2xl shadow-xl flex items-start gap-3">
+                  <span className="material-symbols-outlined text-rose-300 text-xl shrink-0 mt-0.5">error</span>
+                  <p className="text-rose-200/90 text-sm leading-relaxed">{msg.text}</p>
+                </div>
               ) : (
-                <div className="bg-[#121216]/90 backdrop-blur-xl border border-white/10 rounded-3xl rounded-tl-sm p-6 max-w-3xl shadow-2xl space-y-5">
+                <div className="bg-[#121216]/90 backdrop-blur-xl border border-white/10 rounded-3xl rounded-tl-sm p-6 max-w-3xl shadow-2xl space-y-4">
                   <div className="flex items-start gap-4">
-                    <span className="text-3xl shrink-0">🧞</span>
-                    <p className="font-body text-base sm:text-lg text-white/90 leading-relaxed">
+                    <p className="font-body text-base sm:text-lg text-white/90 leading-relaxed whitespace-pre-wrap">
                       {msg.text}
                     </p>
                   </div>
 
-                  {/* Render interactive cards if present */}
-                  {msg.cards && (
-                    <div className="space-y-4 pt-2">
-                      {/* Hackathon Link Card */}
-                      {msg.cards.hackathon && (
-                        <div
-                          onClick={() => onNavigate('events')}
-                          className="bg-[#1a1a20] hover:bg-[#22222a] rounded-2xl p-4 flex items-center justify-between border border-white/10 transition-colors cursor-pointer group shadow-md"
-                        >
-                          <div>
-                            <h4 className="font-headline text-xl text-white font-bold flex items-center gap-2">
-                              <span>🏆</span>
-                              <span>{msg.cards.hackathon.title}</span>
-                            </h4>
-                            <div className="flex gap-4 mt-2 text-xs text-white/60">
-                              <span className="flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[15px] text-[#f0a878]">schedule</span>
-                                {msg.cards.hackathon.daysLeft} days left
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[15px] text-cyan-400">group</span>
-                                {msg.cards.hackathon.attending} attending
-                              </span>
-                            </div>
-                          </div>
-                          <span className="material-symbols-outlined text-[#f0a878] group-hover:translate-x-1 transition-transform">
-                            chevron_right
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Potential Team Card */}
-                      {msg.cards.potentialTeam && (
-                        <div className="bg-[#1a1a20] rounded-2xl p-5 border border-white/10 shadow-md">
-                          <h4 className="font-headline text-xl text-white font-bold mb-4 flex items-center gap-2">
-                            <span>👥</span> Your potential team
-                          </h4>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-                            {msg.cards.potentialTeam.members.map((member) => (
-                              <div
-                                key={member.name}
-                                onClick={() => onNavigate('connect')}
-                                className="bg-[#22222a] hover:bg-[#2a2a34] p-3.5 rounded-xl border border-white/5 flex items-center gap-3 transition-colors cursor-pointer"
-                              >
-                                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-white/15">
-                                  <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-white text-sm truncate">{member.name}</p>
-                                  <p className="text-xs text-white/50 truncate">{member.role}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-white/10 pt-4 gap-3">
-                            <p className="text-xs font-bold text-white/80 flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[#f0a878] text-[18px]">
-                                stacked_line_chart
-                              </span>
-                              Team compatibility: {msg.cards.potentialTeam.compatibility}%
-                            </p>
-
-                            <div className="flex gap-2 w-full sm:w-auto">
-                              <button
-                                onClick={() => onNavigate('connect')}
-                                className="flex-1 sm:flex-initial px-4 py-2 border border-white/20 text-white rounded-xl text-xs font-bold hover:bg-white/10 transition-colors"
-                              >
-                                Find more
-                              </button>
-                              <button
-                                onClick={onOpenTeamBuilder}
-                                className="flex-1 sm:flex-initial px-4 py-2 bg-[#c2652a] text-white rounded-xl text-xs font-bold hover:bg-[#b05721] transition-colors shadow-md"
-                              >
-                                Build my team
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                  {/* Suggested follow-up chips from API */}
+                  {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
+                    <div className="pt-2 border-t border-white/10">
+                      <p className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-2.5">Follow-up questions</p>
+                      <div className="flex flex-wrap gap-2">
+                        {msg.suggestedQuestions.map((q, i) => (
+                          <button
+                            key={i}
+                            onClick={() => submitQuestion(q)}
+                            disabled={isLoading}
+                            className="px-3.5 py-1.5 bg-[#1a1a24] border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all active:scale-95 disabled:opacity-50 text-left"
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -170,34 +163,40 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
             </div>
           ))}
 
-          {isTyping && (
+          {/* Loading indicator */}
+          {isLoading && (
             <div className="flex justify-start">
               <div className="bg-[#121216]/90 border border-white/10 rounded-2xl px-5 py-3 flex items-center gap-2 text-white/50 text-xs">
                 <span className="w-2 h-2 rounded-full bg-[#f0a878] animate-bounce"></span>
                 <span className="w-2 h-2 rounded-full bg-[#f0a878] animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-[#f0a878] animate-bounce [animation-delay:0.4s]"></span>
-                <span className="ml-1">GenZen is indexing campus intelligence...</span>
+                <span className="ml-1">GenZen is querying campus intelligence...</span>
               </div>
             </div>
           )}
+
+          <div ref={bottomRef} />
         </div>
 
         {/* Fixed Bottom Input Area */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 pt-12 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/90 to-transparent z-20">
           <div className="max-w-4xl mx-auto space-y-3">
-            {/* Suggested Question Chips */}
-            <div className="flex flex-wrap gap-2 justify-center">
-              {suggestedChips.map((chip) => (
-                <button
-                  key={chip.label}
-                  onClick={() => handleChipClick(chip.prompt)}
-                  className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center gap-1.5 active:scale-95"
-                >
-                  <span>{chip.icon}</span>
-                  <span>{chip.label}</span>
-                </button>
-              ))}
-            </div>
+            {/* Starter chips (only shown when no conversation yet) */}
+            {messages.length === 0 && (
+              <div className="flex flex-wrap gap-2 justify-center">
+                {suggestedChips.map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => submitQuestion(chip.prompt)}
+                    disabled={isLoading}
+                    className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                  >
+                    <span>{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Magical Glowing Input Box */}
             <form
@@ -210,37 +209,29 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                     type="text"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Ask GenZen anything..."
-                    className="flex-1 bg-transparent border-none focus:outline-none text-white placeholder:text-white/40 text-base font-body"
+                    placeholder={isLoading ? 'Waiting for GenZen...' : 'Ask GenZen anything...'}
+                    disabled={isLoading}
+                    className="flex-1 bg-transparent border-none focus:outline-none text-white placeholder:text-white/40 text-base font-body disabled:opacity-60"
                   />
                   <div className="flex items-center gap-2">
                     <button
-                      type="button"
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">mic</span>
-                    </button>
-                    <button
                       type="submit"
-                      disabled={!inputText.trim()}
+                      disabled={!inputText.trim() || isLoading}
                       className="w-10 h-10 rounded-full flex items-center justify-center bg-[#c2652a] hover:bg-[#b05721] text-white transition-all shadow-md disabled:opacity-40 disabled:hover:bg-[#c2652a] active:scale-95"
                     >
-                      <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        arrow_upward
-                      </span>
+                      {isLoading ? (
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          arrow_upward
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 px-1 text-[11px] text-white/40">
                   <span>Find people, clubs, events, opportunities or advice</span>
-                  <button
-                    type="button"
-                    onClick={() => handleChipClick('Summarize my campus context & match potential')}
-                    className="text-[#f0a878] font-bold hover:underline flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">add</span> Add context
-                  </button>
                 </div>
               </div>
             </form>
@@ -248,11 +239,11 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
         </div>
       </section>
 
-      {/* Right Sidebar: Context Panel (W-80) */}
+      {/* Right Sidebar: Context Panel */}
       <aside className="w-full lg:w-80 bg-[#121216] border-l border-white/10 flex flex-col z-30 shrink-0">
         <div className="p-6 pb-4">
           <h3 className="font-headline text-2xl text-white font-bold flex items-center gap-2">
-            <span>🧠</span>
+            <span>ðŸ§ </span>
             <span>Your Context</span>
           </h3>
         </div>
@@ -265,7 +256,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-base text-white">{user.name}</h4>
-              <p className="text-xs text-white/50">{user.department} • {user.year}</p>
+              <p className="text-xs text-white/50">{user.department} â€¢ {user.year}</p>
             </div>
           </div>
 
@@ -275,7 +266,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
               Active Interests
             </h5>
             <div className="flex flex-wrap gap-2">
-              {['AI', 'Hackathons', 'Python', 'ML', 'SQL'].map((interest) => (
+              {(user.interests?.length ? user.interests : ['AI', 'Hackathons', 'Python', 'ML']).map((interest) => (
                 <span
                   key={interest}
                   className="px-3 py-1 bg-[#1a1a22] border border-white/10 rounded-lg text-xs font-medium text-white/90"
@@ -286,17 +277,36 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
             </div>
           </div>
 
-          {/* Current Focus */}
-          <div>
-            <h5 className="font-bold text-[11px] text-white/40 uppercase tracking-wider mb-2.5">
-              Current Focus
-            </h5>
-            <div className="bg-[#c2652a]/15 p-4 rounded-2xl border border-[#c2652a]/30">
-              <p className="text-xs text-white/90 leading-relaxed font-medium">
-                Looking to build a portfolio project before summer internships.
-              </p>
+          {/* Skills */}
+          {user.skills?.length > 0 && (
+            <div>
+              <h5 className="font-bold text-[11px] text-white/40 uppercase tracking-wider mb-2.5">
+                Skills
+              </h5>
+              <div className="flex flex-wrap gap-2">
+                {user.skills.map((skill) => (
+                  <span
+                    key={skill}
+                    className="px-3 py-1 bg-[#1a1a22] border border-white/10 rounded-lg text-xs font-medium text-white/90"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Current Focus */}
+          {user.bio && (
+            <div>
+              <h5 className="font-bold text-[11px] text-white/40 uppercase tracking-wider mb-2.5">
+                Bio
+              </h5>
+              <div className="bg-[#c2652a]/15 p-4 rounded-2xl border border-[#c2652a]/30">
+                <p className="text-xs text-white/90 leading-relaxed font-medium">{user.bio}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-4 mt-auto text-center border-t border-white/10">
