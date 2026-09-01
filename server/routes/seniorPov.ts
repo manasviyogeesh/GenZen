@@ -99,7 +99,7 @@ const resolveCurrentStudent = async (req: Request) => {
 
   const result = await query<Record<string, unknown>>(
     `
-      SELECT student_id, name, branch, year, avatar, avatar_url
+      SELECT student_id, name, branch, year, avatar
       FROM public.students
       WHERE auth_user_id = $1
       LIMIT 1
@@ -123,7 +123,7 @@ const resolveCurrentStudent = async (req: Request) => {
     name: String(row.name || ''),
     branch: String(row.branch || ''),
     year: String(row.year || ''),
-    avatar: String(row.avatar || row.avatar_url || DEFAULT_AVATAR)
+    avatar: String(row.avatar || DEFAULT_AVATAR)
   };
 };
 
@@ -369,7 +369,7 @@ const fetchQuestionById = async (questionId: string): Promise<SeniorRow | null> 
 
 const fetchStudentSnapshot = async (studentId: string) => {
   const result = await query<Record<string, unknown>>(
-    `SELECT student_id, name, branch, year, avatar, avatar_url FROM public.students WHERE student_id = $1 LIMIT 1`,
+    `SELECT student_id, name, branch, year, avatar FROM public.students WHERE student_id = $1 LIMIT 1`,
     [studentId]
   );
 
@@ -385,7 +385,7 @@ const fetchStudentSnapshot = async (studentId: string) => {
     name: String(row.name || ''),
     branch: String(row.branch || ''),
     year: String(row.year || ''),
-    avatar
+    avatar: String(row.avatar || DEFAULT_AVATAR)
   };
 };
 
