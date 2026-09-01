@@ -304,7 +304,7 @@ const buildDashboard = async (currentStudentId?: string | null, category?: strin
     }));
 
   const trendingCategories = Object.entries(categoryCounts)
-    .sort((left, right) => right[1] - left[1])
+    .sort((left, right) => Number(right[1]) - Number(left[1]))
     .slice(0, 4)
     .map(([categoryName, count]) => ({
       category: categoryName,
