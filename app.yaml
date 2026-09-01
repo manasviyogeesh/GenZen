@@ -1,0 +1,10 @@
+command:
+  - node
+  - build-server/index.js
+
+env:
+  - name: NODE_ENV
+    value: production
+
+  - name: ENDPOINT_NAME
+    valueFrom: postgres

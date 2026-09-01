@@ -5,7 +5,7 @@ interface TeamBuilderModalProps {
   isOpen: boolean;
   onClose: () => void;
   candidates: TeammateCandidate[];
-  onInviteCandidate: (candidateName: string) => void;
+  onInviteCandidate: (candidate: TeammateCandidate) => void;
 }
 
 export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
@@ -14,14 +14,18 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
   candidates,
   onInviteCandidate
 }) => {
-  const [selectedRole, setSelectedRole] = useState('All');
-  const [invitedMap, setInvitedMap] = useState<{ [id: string]: boolean }>({});
+  const [selectedMap, setSelectedMap] = useState<{ [id: string]: boolean }>({});
 
   if (!isOpen) return null;
 
   const handleInvite = (c: TeammateCandidate) => {
-    setInvitedMap({ ...invitedMap, [c.id]: true });
-    onInviteCandidate(c.name);
+    const isSelected = Boolean(selectedMap[c.id]);
+    const next = { ...selectedMap, [c.id]: !isSelected };
+    setSelectedMap(next);
+
+    if (!isSelected) {
+      onInviteCandidate(c);
+    }
   };
 
   return (
@@ -65,7 +69,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
         {/* Candidates in proposed roster */}
         <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar">
           {candidates.map((cand) => {
-            const isInvited = invitedMap[cand.id];
+            const isInvited = Boolean(selectedMap[cand.id]);
             return (
               <div
                 key={cand.id}
@@ -78,6 +82,15 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <h5 className="font-bold text-sm text-white">{cand.name}</h5>
+                      <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
+                        cand.presenceLabel === 'Online now'
+                          ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                          : cand.presenceLabel === 'Active recently'
+                            ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10'
+                            : 'text-white/60 border-white/20 bg-white/5'
+                      }`}>
+                        {cand.presenceLabel}
+                      </span>
                       <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                         {cand.matchScore}% Match
                       </span>
@@ -88,13 +101,24 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
 
                 <button
                   onClick={() => handleInvite(cand)}
+                  disabled={cand.relationshipStatus === 'connected' || cand.relationshipStatus === 'pending'}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    isInvited
+                    cand.relationshipStatus === 'connected'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-not-allowed'
+                      : cand.relationshipStatus === 'pending'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-not-allowed'
+                        : isInvited
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                       : 'bg-[#c2652a] hover:bg-[#b05721] text-white'
                   }`}
                 >
-                  {isInvited ? 'Invited ✓' : 'Send Invite'}
+                  {cand.relationshipStatus === 'connected'
+                    ? 'Connected'
+                    : cand.relationshipStatus === 'pending'
+                      ? 'Pending'
+                      : isInvited
+                        ? 'Added ✓'
+                        : 'Add to Team'}
                 </button>
               </div>
             );

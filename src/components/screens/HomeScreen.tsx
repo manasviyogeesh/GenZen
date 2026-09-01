@@ -117,7 +117,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="flex flex-col items-center text-center">
               <div className="relative mb-3">
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#c2652a]/40 shadow-xl">
-                  <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                  <img src={user.avatarUrl || user.avatar} alt={user.name} className="w-full h-full object-cover" />
                 </div>
                 <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 rounded-full ring-4 ring-[#141318]"></span>
               </div>
@@ -170,7 +170,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <div>
                 <h4 className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">Looking For</h4>
                 <div className="bg-white/5 p-3 rounded-xl border border-white/10 text-xs text-white/80 leading-relaxed">
-                  Project teammates, Hackathons, Research opportunities.
+                  {user.lookingFor.length > 0 ? user.lookingFor.join(', ') : 'Collaborative opportunities across campus.'}
                 </div>
               </div>
             </div>

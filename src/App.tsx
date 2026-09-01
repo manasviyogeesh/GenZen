@@ -1,31 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+
 import {
-  ScreenType,
-  UserProfile,
+  AlumniProfile,
+  AuthSession,
   CampusEvent,
   ChatMessage,
   SeniorQuestion,
-  AlumniProfile,
+  ScreenType,
+  StudentProfileDraft,
+  TeammateCandidate,
+  UserProfile,
 } from './types';
 
 import {
-  loadSeniorResponses,
-  SeniorResponse,
-} from './services/seniorApi';
-
-import {
-  currentUser,
   initialSignals,
-  mockCandidates,
-  mockEvents,
-  mockClubs,
   mockAlumni,
+  mockClubs,
+  mockEvents,
   mockQuestions,
   initialChatMessages,
 } from './data';
 
+import { loadSeniorResponses, SeniorResponse } from './services/seniorApi';
+import { authService } from './services/authService';
+import { studentService } from './services/studentService';
+import { matchingService } from './services/matchingService';
+import { connectionService } from './services/connectionService';
+
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { TopAppBar } from './components/TopAppBar';
+
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ConnectScreen } from './components/screens/ConnectScreen';
 import { CampusPulseScreen } from './components/screens/CampusPulseScreen';
@@ -34,113 +38,104 @@ import { GenZenAIScreen } from './components/screens/GenZenAIScreen';
 import { SeniorPOVScreen } from './components/screens/SeniorPOVScreen';
 import { AlumniNetworkScreen } from './components/screens/AlumniNetworkScreen';
 import { ClubsScreen } from './components/screens/ClubsScreen';
+import { LoginScreen } from './components/screens/LoginScreen';
+import { ProfileSetupScreen } from './components/screens/ProfileSetupScreen';
+import { ProfileSetupSuccessScreen } from './components/screens/ProfileSetupSuccessScreen';
 
 import { CreateEventModal } from './components/modals/CreateEventModal';
 import { EditProfileModal } from './components/modals/EditProfileModal';
 import { TeamBuilderModal } from './components/modals/TeamBuilderModal';
 
-import {
-  createEvent,
-  loadEvents,
-  toggleEventRsvp,
-} from './services/eventsApi';
-import {
-  loadAlumniProfiles,
-  updateAlumniLinkedInProfile,
-} from './services/alumniApi';
+import { createEvent, loadEvents } from './services/eventsApi';
+import { loadAlumniProfiles, updateAlumniLinkedInProfile } from './services/alumniApi';
 
 export function App() {
-  const [currentScreen, setCurrentScreen] =
-    useState<ScreenType>('home');
+  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  const [user, setUser] =
-    useState<UserProfile>(currentUser);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [setupSuccessProfile, setSetupSuccessProfile] = useState<UserProfile | null>(null);
 
-  const [events, setEvents] =
-    useState<CampusEvent[]>(mockEvents);
+  const [connectCandidates, setConnectCandidates] = useState<TeammateCandidate[]>([]);
+  const [connectedCount, setConnectedCount] = useState(0);
+  const [recentConnections, setRecentConnections] = useState<
+    Array<{ id: string; name: string; relation: string; avatar: string }>
+  >([]);
 
-  const [chatMessages, setChatMessages] =
-    useState<ChatMessage[]>(initialChatMessages);
+  const [events, setEvents] = useState<CampusEvent[]>(mockEvents);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
+  const [questions, setQuestions] = useState<SeniorQuestion[]>(mockQuestions);
 
-  const [questions, setQuestions] =
-    useState<SeniorQuestion[]>(mockQuestions);
+  const [alumniProfiles, setAlumniProfiles] = useState<AlumniProfile[]>(mockAlumni);
+  const [alumniLoading, setAlumniLoading] = useState(false);
+  const [alumniError, setAlumniError] = useState<string | null>(null);
 
-  const [alumniProfiles, setAlumniProfiles] =
-    useState<AlumniProfile[]>(mockAlumni);
+  const [seniorResponses, setSeniorResponses] = useState<SeniorResponse[]>([]);
+  const [seniorLoading, setSeniorLoading] = useState(false);
+  const [seniorError, setSeniorError] = useState<string | null>(null);
 
-  const [alumniLoading, setAlumniLoading] =
-    useState(false);
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const [alumniError, setAlumniError] =
-    useState<string | null>(null);
+  const [isCreateEventModalOpen, setIsCreateEventModalOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [isTeamBuilderModalOpen, setIsTeamBuilderModalOpen] = useState(false);
 
-  // Senior responses from Databricks
-  const [seniorResponses, setSeniorResponses] =
-    useState<SeniorResponse[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [seniorLoading, setSeniorLoading] =
-    useState(false);
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 3000);
+  }, []);
 
-  const [seniorError, setSeniorError] =
-    useState<string | null>(null);
+  const hydrateConnectData = useCallback(async (currentUserProfile: UserProfile) => {
+    try {
+      const [allStudents, connections] = await Promise.all([
+        studentService.getStudents(currentUserProfile.student_id),
+        connectionService.getConnections(currentUserProfile.student_id),
+      ]);
 
-  const [searchQuery, setSearchQuery] =
-    useState('');
+      const candidates = matchingService.buildCandidates(currentUserProfile, allStudents, connections);
+      const connectedStudentIds = connectionService.getConnectedStudentIds(
+        currentUserProfile.student_id,
+        connections,
+      );
 
-  // Modals state
-  const [isCreateEventModalOpen, setIsCreateEventModalOpen] =
-    useState(false);
+      const studentMap = new Map(allStudents.map((student) => [student.student_id, student]));
 
-  const [isEditProfileModalOpen, setIsEditProfileModalOpen] =
-    useState(false);
+      const recent = connectedStudentIds
+        .map((studentId) => studentMap.get(studentId))
+        .filter((profile): profile is UserProfile => Boolean(profile))
+        .sort(
+          (left, right) =>
+            new Date(right.last_active).getTime() - new Date(left.last_active).getTime(),
+        )
+        .slice(0, 8)
+        .map((profile) => ({
+          id: profile.student_id,
+          name: profile.name,
+          relation: `${profile.branch} • ${profile.year}`,
+          avatar: profile.avatar || profile.avatarUrl || '',
+        }));
 
-  const [isTeamBuilderModalOpen, setIsTeamBuilderModalOpen] =
-    useState(false);
-
-  const [toastMessage, setToastMessage] =
-    useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
-  };
-
-  const handleNavigate = (screen: ScreenType) => {
-    setCurrentScreen(screen);
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'instant',
-    });
-  };
-
-  const handleAddEvent = (newEvent: CampusEvent) => {
-    return createEvent(newEvent)
-      .then(() => {
-        setEvents((previous) => [
-          newEvent,
-          ...previous,
-        ]);
-
-        showToast(
-          `🎉 Event "${newEvent.title}" published!`,
-        );
-      })
-      .catch((error: unknown) => {
-        showToast(
-          error instanceof Error
-            ? error.message
-            : 'Unable to publish event.',
-        );
-
-        throw error;
+      setConnectCandidates(candidates);
+      setConnectedCount(connectedStudentIds.length);
+      setRecentConnections(recent);
+      setUser({
+        ...currentUserProfile,
+        connectionsCount: connectedStudentIds.length,
+        connections: connectedStudentIds,
       });
-  };
+      setErrorMessage(null);
+    } catch (error) {
+      console.error('hydrateConnectData failed:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Unable to refresh student data right now.',
+      );
+    }
+  }, []);
 
-  // Load events from backend
   useEffect(() => {
     loadEvents()
       .then((storedEvents) => {
@@ -153,7 +148,6 @@ export function App() {
       });
   }, []);
 
-  // Load alumni profiles from Databricks-backed backend
   useEffect(() => {
     setAlumniLoading(true);
 
@@ -167,9 +161,7 @@ export function App() {
       .catch((error: unknown) => {
         console.error('Failed to load alumni profiles:', error);
         setAlumniError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load alumni profiles.',
+          error instanceof Error ? error.message : 'Unable to load alumni profiles.',
         );
       })
       .finally(() => {
@@ -177,7 +169,6 @@ export function App() {
       });
   }, []);
 
-  // Load senior responses from Databricks
   useEffect(() => {
     setSeniorLoading(true);
 
@@ -187,21 +178,40 @@ export function App() {
         setSeniorError(null);
       })
       .catch((error: unknown) => {
-        console.error(
-          'Failed to load senior responses:',
-          error,
-        );
-
+        console.error('Failed to load senior responses:', error);
         setSeniorError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load senior responses.',
+          error instanceof Error ? error.message : 'Unable to load senior responses.',
         );
       })
       .finally(() => {
         setSeniorLoading(false);
       });
   }, []);
+
+  const handleNavigate = useCallback(
+    (screen: ScreenType) => {
+      setCurrentScreen(screen);
+
+      if (session && user) {
+        void (async () => {
+          try {
+            const refreshed = await studentService.touchActive(session.auth_user_id);
+            if (refreshed) {
+              await hydrateConnectData(refreshed);
+            }
+          } catch (error) {
+            console.error('Navigation refresh failed:', error);
+          }
+        })();
+      }
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant',
+      });
+    },
+    [hydrateConnectData, session, user],
+  );
 
   const handleSendMessage = (text: string) => {
     const userMsg: ChatMessage = {
@@ -211,33 +221,18 @@ export function App() {
       timestamp: 'Just now',
     };
 
-    setChatMessages((prev) => [
-      ...prev,
-      userMsg,
-    ]);
+    setChatMessages((prev) => [...prev, userMsg]);
 
-    // Intelligent automated response simulator for GenZen AI
-    setTimeout(() => {
-      let aiResponseText =
-        `I analyzed campus activity for: "${text}". Here is what our campus intelligence graph recommends.`;
-
-      let cards: ChatMessage['cards'] =
-        undefined;
+    window.setTimeout(() => {
+      let aiResponseText = `I analyzed campus activity for: "${text}". Here is what our campus intelligence graph recommends.`;
+      let cards: ChatMessage['cards'] = undefined;
 
       const lower = text.toLowerCase();
 
-      if (
-        lower.includes('alumni') ||
-        lower.includes('mentor') ||
-        lower.includes('linkedin')
-      ) {
+      if (lower.includes('alumni') || lower.includes('mentor') || lower.includes('linkedin')) {
         aiResponseText =
           'I found a curated list of verified alumni across product, AI, and engineering. Their mentorship focus includes career strategy, internships, and startup journeys.';
-      } else if (
-        lower.includes('hackathon') ||
-        lower.includes('team') ||
-        lower.includes('python')
-      ) {
+      } else if (lower.includes('hackathon') || lower.includes('team') || lower.includes('python')) {
         aiResponseText =
           "You're in a great position to build a winning team. I matched you with 3 peers whose skills complement your Python and ML background perfectly.";
 
@@ -247,53 +242,37 @@ export function App() {
             daysLeft: 6,
             attending: 42,
           },
-
           potentialTeam: {
             compatibility: 95,
-
             members: [
               {
                 name: 'Aarav',
                 role: 'Backend • 94%',
                 match: 94,
-                avatar:
-                  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
+                avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
               },
               {
                 name: 'Priya',
                 role: 'UI/UX • 91%',
                 match: 91,
-                avatar:
-                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
+                avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
               },
               {
                 name: 'Karthik',
                 role: 'Cloud • 89%',
                 match: 89,
-                avatar:
-                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+                avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
               },
             ],
           },
         };
-      } else if (
-        lower.includes('club') ||
-        lower.includes('join')
-      ) {
+      } else if (lower.includes('club') || lower.includes('join')) {
         aiResponseText =
           'Based on your focus on UX research and Machine Learning, the AI & Machine Learning Club (98% match) and Design Collective (85% match) have active recruiting projects this week.';
-      } else if (
-        lower.includes('senior') ||
-        lower.includes('elective') ||
-        lower.includes('internship')
-      ) {
+      } else if (lower.includes('senior') || lower.includes('elective') || lower.includes('internship')) {
         aiResponseText =
           'Top seniors recommend CS401 (Advanced ML) for project depth and beginning daily LeetCode practice early in your 4th semester for product firm interviews.';
-      } else if (
-        lower.includes('week') ||
-        lower.includes('event') ||
-        lower.includes('schedule')
-      ) {
+      } else if (lower.includes('week') || lower.includes('event') || lower.includes('schedule')) {
         aiResponseText =
           'This week features 7 campus events, including the Design Jam 2023 tomorrow and Open Source Hackathon Meetup on October 18th.';
       }
@@ -306,40 +285,21 @@ export function App() {
         cards,
       };
 
-      setChatMessages((prev) => [
-        ...prev,
-        aiMsg,
-      ]);
+      setChatMessages((prev) => [...prev, aiMsg]);
     }, 600);
   };
 
-  const handleAskQuestion = (
-    title: string,
-    category: string,
-    description: string,
-  ) => {
-    showToast(
-      `Question "${title}" submitted to seniors.`,
-    );
+  const handleAskQuestion = (title: string, category: string, description: string) => {
+    console.log('Question submitted:', { title, category, description });
+    showToast(`Question "${title}" submitted to seniors.`);
   };
 
-  const handleInviteCandidate = (
-    name: string,
-  ) => {
-    showToast(
-      `Invitation dispatched to ${name}!`,
-    );
+  const handleInviteCandidate = (name: string) => {
+    showToast(`Invitation dispatched to ${name}!`);
   };
 
-  const handleUpdateLinkedIn = async (
-    alumniId: string,
-    linkedinUrl: string,
-  ) => {
-    const updatedProfile =
-      await updateAlumniLinkedInProfile(
-        alumniId,
-        linkedinUrl,
-      );
+  const handleUpdateLinkedIn = async (alumniId: string, linkedinUrl: string) => {
+    const updatedProfile = await updateAlumniLinkedInProfile(alumniId, linkedinUrl);
 
     setAlumniProfiles((previous) =>
       previous.map((profile) =>
@@ -347,9 +307,7 @@ export function App() {
           ? {
               ...profile,
               ...updatedProfile,
-              linkedInUrl:
-                updatedProfile.linkedInUrl ??
-                profile.linkedInUrl,
+              linkedInUrl: updatedProfile.linkedInUrl ?? profile.linkedInUrl,
             }
           : profile,
       ),
@@ -358,53 +316,298 @@ export function App() {
     showToast('LinkedIn profile registered successfully.');
   };
 
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      const nextSession = await authService.login(email, password);
+      setErrorMessage(null);
+      setSetupSuccessProfile(null);
+      setSession(nextSession);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed.';
+      setErrorMessage(message);
+      throw error;
+    }
+  };
+
+  const handleSignUp = async (email: string, password: string) => {
+    try {
+      const nextSession = await authService.signUp(email, password);
+      setErrorMessage(null);
+      setSetupSuccessProfile(null);
+      setSession(nextSession);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign up failed.';
+      setErrorMessage(message);
+      throw error;
+    }
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setSession(null);
+    setUser(null);
+    setSetupSuccessProfile(null);
+    setConnectCandidates([]);
+    setConnectedCount(0);
+    setRecentConnections([]);
+    setCurrentScreen('home');
+    setErrorMessage(null);
+  };
+
+  const handleCreateProfile = (draft: StudentProfileDraft) => {
+    if (!session) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const profile = await studentService.createStudentProfile(
+          session.auth_user_id,
+          session.email,
+          draft,
+        );
+
+        await hydrateConnectData(profile);
+        setSetupSuccessProfile(profile);
+        setErrorMessage(null);
+      } catch (error) {
+        console.error('Profile creation failed:', error);
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Unable to save your profile right now.',
+        );
+      }
+    })();
+  };
+
+  const sendConnectionRequest = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.sendRequest(user.student_id, candidate.student_id);
+
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+
+        showToast(`Connection request sent to ${candidate.name}.`);
+      } catch (error) {
+        console.error('Send connection request failed:', error);
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Unable to send request right now.',
+        );
+      }
+    })();
+  };
+
+  const acceptConnectionRequest = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.acceptRequest(user.student_id, candidate.student_id);
+
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+
+        showToast(`You are now connected with ${candidate.name}.`);
+      } catch (error) {
+        console.error('Accept connection failed:', error);
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Unable to accept request right now.',
+        );
+      }
+    })();
+  };
+
+  const passCandidate = (candidate: TeammateCandidate) => {
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await connectionService.pass(user.student_id, candidate.student_id);
+
+        const refreshed = await studentService.getStudentByAuthUserId(user.auth_user_id);
+        if (refreshed) {
+          await hydrateConnectData(refreshed);
+        }
+      } catch (error) {
+        console.error('Pass candidate failed:', error);
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Unable to update this match right now.',
+        );
+      }
+    })();
+  };
+
+  const handleAddEvent = async (newEvent: CampusEvent) => {
+    try {
+      await createEvent(newEvent);
+      setEvents((previous) => [newEvent, ...previous]);
+      showToast(`🎉 Event "${newEvent.title}" published!`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to publish event.';
+      showToast(message);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      if (!session) {
+        if (mounted) {
+          setUser(null);
+          setConnectCandidates([]);
+          setConnectedCount(0);
+          setRecentConnections([]);
+          setIsBootstrapping(false);
+        }
+        return;
+      }
+
+      if (session.auth_user_id === 'dev-user-001') {
+        if (mounted) {
+          setIsBootstrapping(false);
+        }
+        return;
+      }
+
+      try {
+        let activeProfile: UserProfile | null = null;
+
+        try {
+          activeProfile = await studentService.touchActive(session.auth_user_id);
+        } catch (error) {
+          console.error('touchActive failed:', error);
+        }
+
+        if (!activeProfile) {
+          try {
+            activeProfile = await studentService.getStudentByAuthUserId(session.auth_user_id);
+          } catch (error) {
+            console.error('getStudentByAuthUserId failed:', error);
+          }
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!activeProfile) {
+          setIsBootstrapping(false);
+          return;
+        }
+
+        await hydrateConnectData(activeProfile);
+      } catch (error) {
+        console.error('Application bootstrap failed:', error);
+        if (mounted) {
+          setErrorMessage(
+            error instanceof Error ? error.message : 'Unable to load your profile right now.',
+          );
+        }
+      } finally {
+        if (mounted) {
+          setIsBootstrapping(false);
+        }
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session, hydrateConnectData]);
+
+  useEffect(() => {
+    if (!session || !user) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void (async () => {
+        try {
+          const refreshed = await studentService.touchActive(session.auth_user_id);
+          if (refreshed) {
+            await hydrateConnectData(refreshed);
+          }
+        } catch (error) {
+          console.error('Background profile refresh failed:', error);
+        }
+      })();
+    }, 60000);
+
+    return () => window.clearInterval(interval);
+  }, [session, user, hydrateConnectData]);
+
+  if (isBootstrapping) {
+    return <div className="min-h-screen bg-[#0d0c0f]" />;
+  }
+
+  if (!session) {
+    return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} />;
+  }
+
+  if (setupSuccessProfile) {
+    return (
+      <ProfileSetupSuccessScreen
+        profile={setupSuccessProfile}
+        onContinue={() => {
+          setSetupSuccessProfile(null);
+          setCurrentScreen('connect');
+        }}
+      />
+    );
+  }
+
+  if (!user) {
+    return <ProfileSetupScreen email={session.email} onComplete={handleCreateProfile} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
-
-      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-8 z-50 bg-[#1e1d24] border border-[#c2652a]/40 text-[#fbe8d8] px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
-          <span className="material-symbols-outlined text-[#f0a878] text-lg">
-            check_circle
-          </span>
-
-          <span className="text-sm font-medium">
-            {toastMessage}
-          </span>
+          <span className="material-symbols-outlined text-[#f0a878] text-lg">check_circle</span>
+          <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
 
-      {/* Shared Navigation Sidebar */}
+      {errorMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-rose-500/15 border border-rose-400/30 text-rose-100 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 max-w-[90vw]">
+          <span className="material-symbols-outlined text-rose-300 text-lg">error</span>
+          <span className="text-sm font-medium">{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="ml-2 text-rose-200 hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <NavigationSidebar
         currentScreen={currentScreen}
         onNavigate={handleNavigate}
-        onOpenCreateModal={() =>
-          setIsCreateEventModalOpen(true)
-        }
-        searchQuery={searchQuery}
-        onToggleRsvp={async (
-          eventId,
-          title,
-          registered,
-        ) => {
-          await toggleEventRsvp(
-            eventId,
-            registered,
-          );
-
-          showToast(
-            registered
-              ? `RSVP cancelled for "${title}".`
-              : `RSVP confirmed for "${title}".`,
-          );
-        }}
+        onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
         user={user}
+        onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
       <div className="md:pl-64 flex flex-col flex-1 pb-16 md:pb-0">
-
-        {/* Top App Bar */}
         <TopAppBar
           user={user}
           onNavigate={handleNavigate}
@@ -412,37 +615,31 @@ export function App() {
           onSearchChange={setSearchQuery}
         />
 
-        {/* Dynamic Screen View Container */}
         <main className="flex-1 md:pt-16">
-
-          {/* Home */}
           {currentScreen === 'home' && (
             <HomeScreen
               user={user}
               signals={initialSignals}
               onNavigate={handleNavigate}
-              onOpenCreateModal={() =>
-                setIsCreateEventModalOpen(true)
-              }
-              onEditProfile={() =>
-                setIsEditProfileModalOpen(true)
-              }
+              onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
+              onEditProfile={() => setIsEditProfileModalOpen(true)}
             />
           )}
 
-          {/* Connect */}
           {currentScreen === 'connect' && (
             <ConnectScreen
               user={user}
-              candidates={mockCandidates}
+              candidates={connectCandidates}
               onNavigate={handleNavigate}
-              onOpenTeamBuilder={() =>
-                setIsTeamBuilderModalOpen(true)
-              }
+              onOpenTeamBuilder={() => setIsTeamBuilderModalOpen(true)}
+              onSendConnectionRequest={sendConnectionRequest}
+              onAcceptConnection={acceptConnectionRequest}
+              onPassCandidate={passCandidate}
+              connectedCount={connectedCount}
+              recentConnections={recentConnections}
             />
           )}
 
-          {/* Alumni Network */}
           {currentScreen === 'alumni' && (
             <AlumniNetworkScreen
               user={user}
@@ -452,39 +649,26 @@ export function App() {
             />
           )}
 
-          {/* Campus Pulse */}
           {currentScreen === 'pulse' && (
-            <CampusPulseScreen
-              user={user}
-              onNavigate={handleNavigate}
-            />
+            <CampusPulseScreen user={user} onNavigate={handleNavigate} />
           )}
 
-          {/* Events */}
           {currentScreen === 'events' && (
             <EventsScreen
               events={events}
               onNavigate={handleNavigate}
-              onOpenCreateModal={() =>
-                setIsCreateEventModalOpen(true)
-              }
+              onOpenCreateModal={() => setIsCreateEventModalOpen(true)}
             />
           )}
 
-          {/* GenZen AI */}
           {currentScreen === 'ai' && (
             <GenZenAIScreen
               user={user}
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
               onNavigate={handleNavigate}
-              onOpenTeamBuilder={() =>
-                setIsTeamBuilderModalOpen(true)
-              }
+              onOpenTeamBuilder={() => setIsTeamBuilderModalOpen(true)}
             />
           )}
 
-          {/* Senior POV */}
           {currentScreen === 'senior_pov' && (
             <SeniorPOVScreen
               user={user}
@@ -497,51 +681,56 @@ export function App() {
             />
           )}
 
-          {/* Clubs */}
           {currentScreen === 'clubs' && (
             <ClubsScreen
               user={user}
               clubs={mockClubs}
               onNavigate={handleNavigate}
-              onOpenCreateClub={() =>
-                setIsCreateEventModalOpen(true)
-              }
+              onOpenCreateClub={() => setIsCreateEventModalOpen(true)}
             />
           )}
         </main>
       </div>
 
-      {/* Modals */}
-
       <CreateEventModal
         isOpen={isCreateEventModalOpen}
-        onClose={() =>
-          setIsCreateEventModalOpen(false)
-        }
+        onClose={() => setIsCreateEventModalOpen(false)}
         onAddEvent={handleAddEvent}
       />
 
       <EditProfileModal
         isOpen={isEditProfileModalOpen}
-        onClose={() =>
-          setIsEditProfileModalOpen(false)
-        }
+        onClose={() => setIsEditProfileModalOpen(false)}
         user={user}
         onSave={(updated) => {
-          setUser(updated);
-          showToast(
-            'Profile updated successfully.',
-          );
+          if (!session) {
+            return;
+          }
+
+          void (async () => {
+            try {
+              const saved = await studentService.updateStudentProfile(user.student_id, updated);
+              await hydrateConnectData(saved);
+              showToast('Profile updated successfully.');
+              setErrorMessage(null);
+            } catch (error) {
+              console.error('Profile update failed:', error);
+              setErrorMessage(
+                error instanceof Error ? error.message : 'Unable to update profile right now.',
+              );
+            }
+          })();
         }}
       />
 
       <TeamBuilderModal
         isOpen={isTeamBuilderModalOpen}
-        onClose={() =>
-          setIsTeamBuilderModalOpen(false)
-        }
-        candidates={mockCandidates}
-        onInviteCandidate={handleInviteCandidate}
+        onClose={() => setIsTeamBuilderModalOpen(false)}
+        candidates={connectCandidates}
+        onInviteCandidate={(candidate) => {
+          sendConnectionRequest(candidate);
+          handleInviteCandidate(candidate.name);
+        }}
       />
     </div>
   );
