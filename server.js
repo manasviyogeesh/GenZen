@@ -33,8 +33,8 @@ if (!DATABRICKS_HOST || !DATABRICKS_TOKEN || !GENIE_SPACE_ID) {
 const GENIE_BASE = `${DATABRICKS_HOST.replace(/\/$/, '')}/api/2.0/genie/spaces/${GENIE_SPACE_ID}`;
 const AUTH_HEADER = { Authorization: `Bearer ${DATABRICKS_TOKEN}` };
 
-const POLL_INTERVAL_MS = 1500;
-const POLL_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 75_000;
 
 // Log attachments shape only once per server session
 let attachmentsShapeLogged = false;

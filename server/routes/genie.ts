@@ -33,8 +33,8 @@ const getGenieConfig = () => {
   };
 };
 
-const POLL_INTERVAL_MS = 1500;
-const POLL_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 75_000;
 let attachmentsShapeLogged = false;
 
 function sleep(ms: number) {

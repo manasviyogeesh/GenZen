@@ -61,7 +61,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: trimmed }),
-        signal: AbortSignal.timeout(40_000), // 40s client-side timeout
+        signal: AbortSignal.timeout(85_000), // 85s client-side timeout
       });
 
       if (!res.ok) {
