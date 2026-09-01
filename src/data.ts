@@ -1,4 +1,4 @@
-import { UserProfile, SignalItem, TeammateCandidate, CampusEvent, ClubItem, SeniorQuestion, ChatMessage } from './types';
+import { UserProfile, SignalItem, TeammateCandidate, CampusEvent, ClubItem, AlumniProfile, SeniorQuestion, ChatMessage } from './types';
 
 export const currentUser: UserProfile = {
   name: 'Manasvi Y',
@@ -260,6 +260,77 @@ export const mockClubs: ClubItem[] = [
       title: 'Drone PID Calibration',
       time: 'Thursday, 3:30 PM • Makerspace'
     }
+  }
+];
+
+export const mockAlumni: AlumniProfile[] = [
+  {
+    id: 'alumni-arya',
+    name: 'Arya Mehta',
+    role: 'Senior Product Engineer',
+    company: 'Google',
+    department: 'CSE',
+    graduationYear: '2019',
+    location: 'Bengaluru, India',
+    bio: 'Former GenZen campus builder now working on AI-powered developer tooling and mentoring students on product and career growth.',
+    linkedInUrl: 'https://www.linkedin.com/in/arya-mehta-demo',
+    mentorshipTopics: ['Product strategy', 'AI careers', 'System design'],
+    skills: ['Product', 'System Design', 'AI', 'Leadership'],
+    verified: true,
+    claimed: true,
+    availability: 'Open for 1:1 mentoring every Saturday',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'alumni-rhea',
+    name: 'Rhea Kapoor',
+    role: 'ML Engineer',
+    company: 'NVIDIA',
+    department: 'CSE',
+    graduationYear: '2020',
+    location: 'Hyderabad, India',
+    bio: 'Builds robust ML systems and helps students navigate research, internships, and domain-specific learning roadmaps.',
+    linkedInUrl: 'https://www.linkedin.com/in/rhea-kapoor-demo',
+    mentorshipTopics: ['Machine learning', 'Internships', 'Research paths'],
+    skills: ['Python', 'PyTorch', 'MLOps', 'Data'],
+    verified: true,
+    claimed: true,
+    availability: 'Open to monthly mentor check-ins',
+    avatarUrl: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'alumni-vasu',
+    name: 'Vasu Nair',
+    role: 'Software Engineer, Platform',
+    company: 'Microsoft',
+    department: 'IT',
+    graduationYear: '2018',
+    location: 'Pune, India',
+    bio: 'Helps students learn startup thinking, product engineering, and how to move from campus projects to high-impact roles.',
+    linkedInUrl: 'https://www.linkedin.com/in/vasu-nair-demo',
+    mentorshipTopics: ['Career strategy', 'Startup journeys', 'Software engineering'],
+    skills: ['JavaScript', 'Cloud', 'Distributed Systems', 'Leadership'],
+    verified: true,
+    claimed: false,
+    availability: 'Available for project feedback and mock interviews',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 'alumni-neha',
+    name: 'Neha Sethi',
+    role: 'UX Research Lead',
+    company: 'Adobe',
+    department: 'Design',
+    graduationYear: '2021',
+    location: 'Delhi, India',
+    bio: 'Advises students on design careers, portfolio building, and transitioning from campus experiences into industry roles.',
+    linkedInUrl: 'https://www.linkedin.com/in/neha-sethi-demo',
+    mentorshipTopics: ['UX research', 'Portfolio critique', 'Design careers'],
+    skills: ['UX', 'Research', 'Product Thinking', 'Figma'],
+    verified: false,
+    claimed: true,
+    availability: 'Weekend office hours for design students',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80'
   }
 ];
 

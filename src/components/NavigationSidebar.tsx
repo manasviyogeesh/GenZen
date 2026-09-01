@@ -18,9 +18,10 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
     { id: 'home', label: 'Home', icon: 'home', color: 'text-white' },
     { id: 'ai', label: 'GenZen AI', icon: 'smart_toy', color: 'text-purple-400' },
     { id: 'connect', label: 'Connect', icon: 'group', color: 'text-cyan-400' },
+    { id: 'alumni', label: 'Alumni', icon: 'school', color: 'text-[#f0a878]' },
     { id: 'clubs', label: 'Clubs', icon: 'groups', color: 'text-emerald-400' },
     { id: 'events', label: 'Events', icon: 'calendar_today', color: 'text-orange-400' },
-    { id: 'senior_pov', label: 'Senior POV', icon: 'school', color: 'text-rose-400' },
+    { id: 'senior_pov', label: 'Senior POV', icon: 'psychology', color: 'text-rose-400' },
     { id: 'pulse', label: 'Campus Pulse', icon: 'insights', color: 'text-blue-400' },
   ];
 

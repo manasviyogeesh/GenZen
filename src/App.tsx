@@ -5,6 +5,7 @@ import {
   CampusEvent,
   ChatMessage,
   SeniorQuestion,
+  AlumniProfile,
 } from './types';
 
 import {
@@ -18,6 +19,7 @@ import {
   mockCandidates,
   mockEvents,
   mockClubs,
+  mockAlumni,
   mockQuestions,
   initialChatMessages,
 } from './data';
@@ -30,6 +32,7 @@ import { CampusPulseScreen } from './components/screens/CampusPulseScreen';
 import { EventsScreen } from './components/screens/EventsScreen';
 import { GenZenAIScreen } from './components/screens/GenZenAIScreen';
 import { SeniorPOVScreen } from './components/screens/SeniorPOVScreen';
+import { AlumniNetworkScreen } from './components/screens/AlumniNetworkScreen';
 import { ClubsScreen } from './components/screens/ClubsScreen';
 
 import { CreateEventModal } from './components/modals/CreateEventModal';
@@ -41,6 +44,10 @@ import {
   loadEvents,
   toggleEventRsvp,
 } from './services/eventsApi';
+import {
+  loadAlumniProfiles,
+  updateAlumniLinkedInProfile,
+} from './services/alumniApi';
 
 export function App() {
   const [currentScreen, setCurrentScreen] =
@@ -57,6 +64,15 @@ export function App() {
 
   const [questions, setQuestions] =
     useState<SeniorQuestion[]>(mockQuestions);
+
+  const [alumniProfiles, setAlumniProfiles] =
+    useState<AlumniProfile[]>(mockAlumni);
+
+  const [alumniLoading, setAlumniLoading] =
+    useState(false);
+
+  const [alumniError, setAlumniError] =
+    useState<string | null>(null);
 
   // Senior responses from Databricks
   const [seniorResponses, setSeniorResponses] =
@@ -137,6 +153,30 @@ export function App() {
       });
   }, []);
 
+  // Load alumni profiles from Databricks-backed backend
+  useEffect(() => {
+    setAlumniLoading(true);
+
+    loadAlumniProfiles()
+      .then((data) => {
+        if (data.length) {
+          setAlumniProfiles(data);
+        }
+        setAlumniError(null);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load alumni profiles:', error);
+        setAlumniError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load alumni profiles.',
+        );
+      })
+      .finally(() => {
+        setAlumniLoading(false);
+      });
+  }, []);
+
   // Load senior responses from Databricks
   useEffect(() => {
     setSeniorLoading(true);
@@ -187,6 +227,13 @@ export function App() {
       const lower = text.toLowerCase();
 
       if (
+        lower.includes('alumni') ||
+        lower.includes('mentor') ||
+        lower.includes('linkedin')
+      ) {
+        aiResponseText =
+          'I found a curated list of verified alumni across product, AI, and engineering. Their mentorship focus includes career strategy, internships, and startup journeys.';
+      } else if (
         lower.includes('hackathon') ||
         lower.includes('team') ||
         lower.includes('python')
@@ -284,6 +331,33 @@ export function App() {
     );
   };
 
+  const handleUpdateLinkedIn = async (
+    alumniId: string,
+    linkedinUrl: string,
+  ) => {
+    const updatedProfile =
+      await updateAlumniLinkedInProfile(
+        alumniId,
+        linkedinUrl,
+      );
+
+    setAlumniProfiles((previous) =>
+      previous.map((profile) =>
+        profile.id === alumniId
+          ? {
+              ...profile,
+              ...updatedProfile,
+              linkedInUrl:
+                updatedProfile.linkedInUrl ??
+                profile.linkedInUrl,
+            }
+          : profile,
+      ),
+    );
+
+    showToast('LinkedIn profile registered successfully.');
+  };
+
   return (
     <div className="min-h-screen bg-[#0d0c0f] text-[#f5f1eb] flex flex-col antialiased selection:bg-[#c2652a]/30">
 
@@ -365,6 +439,16 @@ export function App() {
               onOpenTeamBuilder={() =>
                 setIsTeamBuilderModalOpen(true)
               }
+            />
+          )}
+
+          {/* Alumni Network */}
+          {currentScreen === 'alumni' && (
+            <AlumniNetworkScreen
+              user={user}
+              alumni={alumniProfiles}
+              onNavigate={handleNavigate}
+              onUpdateLinkedIn={handleUpdateLinkedIn}
             />
           )}
 

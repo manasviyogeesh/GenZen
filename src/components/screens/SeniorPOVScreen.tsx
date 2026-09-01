@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { SeniorQuestion, UserProfile, ScreenType } from '../../types';
+import {
+  SeniorQuestion,
+  UserProfile,
+  ScreenType
+} from '../../types';
 import { SeniorResponse } from '../../services/seniorApi';
 
 interface SeniorPOVScreenProps {
@@ -56,9 +60,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
   ];
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * LIVE DATABRICKS SENIOR INSIGHTS
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   type ElectiveStat = {
@@ -68,67 +72,128 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
     recommended: number;
   };
 
-  const electiveMap: Record<string, ElectiveStat> = {};
+  /*
+   * Build elective statistics.
+   *
+   * We use Object.keys() instead of Object.values()
+   * because it gives TypeScript a much more reliable type
+   * in this project's configuration.
+   */
 
-  for (const response of seniorResponses) {
-    const name = response.primary_elective;
-    const rating = Number(response.elective_rating) || 0;
+  const electiveMap: Record<string, ElectiveStat> =
+    seniorResponses.reduce((acc, response) => {
+        const name =
+          response.primary_elective?.trim();
 
-    if (!electiveMap[name]) {
-      electiveMap[name] = {
-        name,
-        total: 0,
-        ratingTotal: 0,
-        recommended: 0
+        if (!name) {
+          return acc;
+        }
+
+        const rating =
+          Number(response.elective_rating) || 0;
+
+        if (!acc[name]) {
+          acc[name] = {
+            name,
+            total: 0,
+            ratingTotal: 0,
+            recommended: 0
+          };
+        }
+
+        acc[name].total += 1;
+        acc[name].ratingTotal += rating;
+
+        const recommendation =
+          response.elective_recommend
+            ?.trim()
+            .toLowerCase();
+
+        if (recommendation === 'yes') {
+          acc[name].recommended += 1;
+        }
+
+        return acc;
+      },
+      {} as Record<string, ElectiveStat>
+    );
+
+  const electiveStats = Object.keys(
+    electiveMap
+  )
+    .map((name) => {
+      const item: ElectiveStat =
+        electiveMap[name];
+
+      return {
+        ...item,
+        averageRating:
+          item.total > 0
+            ? item.ratingTotal / item.total
+            : 0,
+        recommendationRate:
+          item.total > 0
+            ? (item.recommended /
+                item.total) *
+              100
+            : 0
       };
-    }
-
-    electiveMap[name].total += 1;
-    electiveMap[name].ratingTotal += rating;
-
-    if (
-      response.elective_recommend &&
-      response.elective_recommend.toLowerCase() === 'yes'
-    ) {
-      electiveMap[name].recommended += 1;
-    }
-  }
-
-  const electiveStats = Object.values(electiveMap)
-    .map((item) => ({
-      ...item,
-      averageRating: item.ratingTotal / item.total,
-      recommendationRate:
-        (item.recommended / item.total) * 100
-    }))
-    .sort((a, b) => b.averageRating - a.averageRating);
-
-  const careerMap: Record<string, number> = {};
-
-  for (const response of seniorResponses) {
-    const career = response.career_interest;
-    careerMap[career] = (careerMap[career] || 0) + 1;
-  }
-
-  const careerStats = Object.entries(careerMap)
-    .map(([name, count]) => ({
-      name,
-      count
-    }))
-    .sort((a, b) => b.count - a.count);
-
-  const seniorLessons = seniorResponses
-    .filter(
-      (response) =>
-        response.lesson_learned &&
-        response.lesson_learned.trim().length > 0
-    )
-    .slice(0, 3);
+    })
+    .sort(
+      (a, b) =>
+        b.averageRating -
+        a.averageRating
+    );
 
   /*
-   * ---------------------------------------------------------
+   * Build career statistics.
+   */
+
+  const careerMap: Record<string, number> =
+    seniorResponses.reduce((acc, response) => {
+        const career =
+          response.career_interest?.trim();
+
+        if (career) {
+          acc[career] =
+            (acc[career] || 0) + 1;
+        }
+
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+  const careerStats = Object.keys(
+    careerMap
+  )
+    .map((name) => ({
+      name,
+      count: careerMap[name]
+    }))
+    .sort(
+      (a, b) =>
+        b.count - a.count
+    );
+
+  /*
+   * Senior lessons.
+   */
+
+  const seniorLessons =
+    seniorResponses
+      .filter(
+        (response) =>
+          Boolean(
+            response.lesson_learned?.trim()
+          )
+      )
+      .slice(0, 3);
+
+  /*
+   * =========================================================
    * QUESTION HANDLERS
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const handleVote = (
@@ -137,7 +202,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
   ) => {
     setQuestions((prev) =>
       prev.map((q) => {
-        if (q.id !== id) return q;
+        if (q.id !== id) {
+          return q;
+        }
 
         if (q.userVote === dir) {
           return {
@@ -166,7 +233,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
     );
   };
 
-  const handleToggleSave = (id: string) => {
+  const handleToggleSave = (
+    id: string
+  ) => {
     setQuestions((prev) =>
       prev.map((q) =>
         q.id === id
@@ -179,15 +248,21 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
     );
   };
 
-  const handleAddAnswer = (qId: string) => {
+  const handleAddAnswer = (
+    qId: string
+  ) => {
     const text =
       replyTextMap[qId]?.trim();
 
-    if (!text) return;
+    if (!text) {
+      return;
+    }
 
     setQuestions((prev) =>
       prev.map((q) => {
-        if (q.id !== qId) return q;
+        if (q.id !== qId) {
+          return q;
+        }
 
         const newAns = {
           id: `ans-${Date.now()}`,
@@ -210,10 +285,10 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
       })
     );
 
-    setReplyTextMap({
-      ...replyTextMap,
+    setReplyTextMap((prev) => ({
+      ...prev,
       [qId]: ''
-    });
+    }));
   };
 
   const handleCreateQuestion = (
@@ -221,7 +296,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
   ) => {
     e.preventDefault();
 
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim()) {
+      return;
+    }
 
     const created: SeniorQuestion = {
       id: `q-${Date.now()}`,
@@ -238,15 +315,15 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
       userVote: 'up'
     };
 
-    setQuestions([
+    setQuestions((prev) => [
       created,
-      ...questions
+      ...prev
     ]);
 
     onAskQuestion(
-      newTitle,
+      newTitle.trim(),
       newCategory,
-      newDesc
+      newDesc.trim()
     );
 
     setNewTitle('');
@@ -263,23 +340,23 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
     );
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * UI
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   return (
     <div className="flex-1 min-h-screen p-6 md:p-10 lg:p-12 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
 
       {/* =====================================================
-          CENTER FEED COLUMN
+          CENTER FEED
       ===================================================== */}
 
       <div className="flex-1 space-y-8">
 
-        {/* ---------------------------------------------------
+        {/* ===================================================
             LIVE DATABRICKS SENIOR INSIGHTS
-        --------------------------------------------------- */}
+        =================================================== */}
 
         <section className="glass-card rounded-3xl p-6 md:p-8 border border-[#c2652a]/30 space-y-6 shadow-xl">
 
@@ -377,7 +454,11 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                       .slice(0, 4)
                       .map((elective) => (
 
-                        <div key={elective.name}>
+                        <div
+                          key={
+                            elective.name
+                          }
+                        >
 
                           <div className="flex justify-between items-center mb-1">
 
@@ -400,8 +481,11 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                               className="h-full bg-[#c2652a] rounded-full"
                               style={{
                                 width: `${Math.min(
-                                  elective.averageRating *
-                                    20,
+                                  Math.max(
+                                    elective.averageRating *
+                                      20,
+                                    0
+                                  ),
                                   100
                                 )}%`
                               }}
@@ -420,7 +504,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
                       ))}
 
-                    {electiveStats.length === 0 && (
+                    {electiveStats.length ===
+                      0 && (
                       <p className="text-sm text-white/40">
                         No elective data available.
                       </p>
@@ -431,7 +516,7 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 </div>
 
                 {/* =================================================
-                    CAREER INTERESTS
+                    CAREER PATHS
                 ================================================= */}
 
                 <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
@@ -453,7 +538,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                       .map((career) => (
 
                         <div
-                          key={career.name}
+                          key={
+                            career.name
+                          }
                           className="flex items-center justify-between gap-4"
                         >
 
@@ -469,7 +556,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
                       ))}
 
-                    {careerStats.length === 0 && (
+                    {careerStats.length ===
+                      0 && (
                       <p className="text-sm text-white/40">
                         No career data available.
                       </p>
@@ -501,7 +589,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                       (lesson) => (
 
                         <div
-                          key={lesson.response_id}
+                          key={
+                            lesson.response_id
+                          }
                           className="p-4 rounded-xl bg-black/10 border border-white/5"
                         >
 
@@ -518,7 +608,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                       )
                     )}
 
-                    {seniorLessons.length === 0 && (
+                    {seniorLessons.length ===
+                      0 && (
                       <p className="text-sm text-white/40 md:col-span-3">
                         No senior lessons available yet.
                       </p>
@@ -529,14 +620,17 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 </div>
 
               </div>
-
             )}
+
+          {/* No data */}
 
           {!seniorLoading &&
             !seniorError &&
-            seniorResponses.length === 0 && (
+            seniorResponses.length ===
+              0 && (
 
               <div className="py-8 text-center text-white/40">
+
                 <span className="material-symbols-outlined text-3xl">
                   database
                 </span>
@@ -544,8 +638,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 <p className="text-sm mt-2">
                   No senior responses available yet.
                 </p>
-              </div>
 
+              </div>
             )}
 
         </section>
@@ -591,20 +685,22 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
         <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
 
-          {topics.map((t) => (
+          {topics.map((topic) => (
 
             <button
-              key={t}
+              key={topic}
               onClick={() =>
-                setSelectedTopic(t)
+                setSelectedTopic(
+                  topic
+                )
               }
               className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedTopic === t
+                selectedTopic === topic
                   ? 'bg-[#c2652a] text-white shadow-sm'
                   : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
               }`}
             >
-              {t}
+              {topic}
             </button>
 
           ))}
@@ -612,7 +708,7 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
         </div>
 
         {/* =====================================================
-            QUESTION CARDS
+            QUESTION FEED
         ===================================================== */}
 
         <div className="space-y-6">
@@ -634,10 +730,14 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
                   <button
                     onClick={() =>
-                      handleVote(q.id, 'up')
+                      handleVote(
+                        q.id,
+                        'up'
+                      )
                     }
                     className={`p-1 hover:text-[#f0a878] transition-colors ${
-                      q.userVote === 'up'
+                      q.userVote ===
+                      'up'
                         ? 'text-[#f0a878]'
                         : 'text-white/40'
                     }`}
@@ -655,10 +755,14 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
                   <button
                     onClick={() =>
-                      handleVote(q.id, 'down')
+                      handleVote(
+                        q.id,
+                        'down'
+                      )
                     }
                     className={`p-1 hover:text-rose-400 transition-colors ${
-                      q.userVote === 'down'
+                      q.userVote ===
+                      'down'
                         ? 'text-rose-400'
                         : 'text-white/40'
                     }`}
@@ -672,7 +776,7 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
                 </div>
 
-                {/* Question body */}
+                {/* Question */}
 
                 <div className="flex-1 min-w-0">
 
@@ -720,13 +824,16 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                         chat_bubble
                       </span>
 
-                      {q.answersCount} answers
+                      {q.answersCount}{' '}
+                      answers
 
                     </span>
 
                     <button
                       onClick={() =>
-                        handleToggleSave(q.id)
+                        handleToggleSave(
+                          q.id
+                        )
                       }
                       className={`flex items-center gap-1 hover:text-white transition-colors ${
                         q.isSaved
@@ -762,69 +869,81 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
               {/* Answers */}
 
               {q.answers &&
-                q.answers.length > 0 && (
+                q.answers.length >
+                  0 && (
 
                   <div className="border-t border-white/10 pt-5 space-y-4 pl-4 sm:pl-8 border-l-2 border-l-[#c2652a]/40">
 
-                    {q.answers.map((ans) => (
+                    {q.answers.map(
+                      (answer) => (
 
-                      <div
-                        key={ans.id}
-                        className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2"
-                      >
+                        <div
+                          key={
+                            answer.id
+                          }
+                          className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2"
+                        >
 
-                        <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between">
 
-                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
 
-                            <span className="font-bold text-sm text-white">
-                              {ans.author}
-                            </span>
-
-                            <span className="text-xs text-white/50">
-                              {ans.classInfo}
-                            </span>
-
-                            {ans.verified && (
-
-                              <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/30 flex items-center gap-1">
-
-                                <span className="material-symbols-outlined text-[12px]">
-                                  verified
-                                </span>
-
-                                Verified Senior
-
+                              <span className="font-bold text-sm text-white">
+                                {
+                                  answer.author
+                                }
                               </span>
 
-                            )}
+                              <span className="text-xs text-white/50">
+                                {
+                                  answer.classInfo
+                                }
+                              </span>
+
+                              {answer.verified && (
+
+                                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/30 flex items-center gap-1">
+
+                                  <span className="material-symbols-outlined text-[12px]">
+                                    verified
+                                  </span>
+
+                                  Verified Senior
+
+                                </span>
+
+                              )}
+
+                            </div>
+
+                            <button className="flex items-center gap-1 text-xs text-white/60 hover:text-rose-400">
+
+                              <span className="material-symbols-outlined text-[14px]">
+                                favorite
+                              </span>
+
+                              <span>
+                                {
+                                  answer.likes
+                                }
+                              </span>
+
+                            </button>
 
                           </div>
 
-                          <button className="flex items-center gap-1 text-xs text-white/60 hover:text-rose-400">
-
-                            <span className="material-symbols-outlined text-[14px]">
-                              favorite
-                            </span>
-
-                            <span>
-                              {ans.likes}
-                            </span>
-
-                          </button>
+                          <p className="text-sm text-white/90 leading-relaxed font-body">
+                            {
+                              answer.content
+                            }
+                          </p>
 
                         </div>
 
-                        <p className="text-sm text-white/90 leading-relaxed font-body">
-                          {ans.content}
-                        </p>
-
-                      </div>
-
-                    ))}
+                      )
+                    )}
 
                   </div>
-
                 )}
 
               {/* Reply */}
@@ -834,27 +953,38 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 <input
                   type="text"
                   value={
-                    replyTextMap[q.id] || ''
+                    replyTextMap[
+                      q.id
+                    ] || ''
                   }
                   onChange={(e) =>
-                    setReplyTextMap({
-                      ...replyTextMap,
-                      [q.id]:
-                        e.target.value
-                    })
+                    setReplyTextMap(
+                      (prev) => ({
+                        ...prev,
+                        [q.id]:
+                          e.target.value
+                      })
+                    )
                   }
                   placeholder="Add your perspective or senior advice..."
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-[#c2652a]"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddAnswer(q.id);
+                    if (
+                      e.key ===
+                      'Enter'
+                    ) {
+                      handleAddAnswer(
+                        q.id
+                      );
                     }
                   }}
                 />
 
                 <button
                   onClick={() =>
-                    handleAddAnswer(q.id)
+                    handleAddAnswer(
+                      q.id
+                    )
                   }
                   className="px-4 py-2 bg-[#c2652a] hover:bg-[#b05721] text-white rounded-xl text-xs font-bold transition-all active:scale-95"
                 >
@@ -898,37 +1028,46 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
             {[
               {
                 name: 'Rahul Sharma',
-                details: "Class of '24 • Amazon SDE",
+                details:
+                  "Class of '24 • Amazon SDE",
                 answers: 142,
                 avatar:
                   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80'
               },
               {
                 name: 'Ananya Patel',
-                details: "Class of '24 • Stanford MS",
+                details:
+                  "Class of '24 • Stanford MS",
                 answers: 98,
                 avatar:
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
               },
               {
                 name: 'Devika Menon',
-                details: "Class of '25 • Google SWE",
+                details:
+                  "Class of '25 • Google SWE",
                 answers: 74,
                 avatar:
                   'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80'
               }
-            ].map((c) => (
+            ].map((contributor) => (
 
               <div
-                key={c.name}
+                key={
+                  contributor.name
+                }
                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors"
               >
 
                 <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-white/20">
 
                   <img
-                    src={c.avatar}
-                    alt={c.name}
+                    src={
+                      contributor.avatar
+                    }
+                    alt={
+                      contributor.name
+                    }
                     className="w-full h-full object-cover"
                   />
 
@@ -937,17 +1076,24 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 <div className="min-w-0 flex-1">
 
                   <h5 className="font-bold text-sm text-white truncate">
-                    {c.name}
+                    {
+                      contributor.name
+                    }
                   </h5>
 
                   <p className="text-xs text-white/50 truncate">
-                    {c.details}
+                    {
+                      contributor.details
+                    }
                   </p>
 
                 </div>
 
                 <span className="text-[11px] text-[#f0a878] font-bold shrink-0">
-                  {c.answers} ans
+                  {
+                    contributor.answers
+                  }{' '}
+                  ans
                 </span>
 
               </div>
@@ -981,7 +1127,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
               </p>
 
               <span className="text-[10px] text-white/40 block mt-1">
-                ISE • 2nd Year • 0 answers
+                ISE • 2nd Year • 0
+                answers
               </span>
 
             </div>
@@ -993,7 +1140,8 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
               </p>
 
               <span className="text-[10px] text-white/40 block mt-1">
-                CSE • 2nd Year • 1 answer
+                CSE • 2nd Year • 1
+                answer
               </span>
 
             </div>
@@ -1002,7 +1150,7 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
         </div>
 
-        {/* Trending Tags */}
+        {/* Trending Discussions */}
 
         <div className="glass-card rounded-2xl p-5 border border-white/10">
 
@@ -1058,7 +1206,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
               <button
                 onClick={() =>
-                  setShowAskModal(false)
+                  setShowAskModal(
+                    false
+                  )
                 }
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:text-white"
               >
@@ -1135,7 +1285,7 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
 
               </div>
 
-              {/* Question Title */}
+              {/* Title */}
 
               <div>
 
@@ -1187,7 +1337,9 @@ export const SeniorPOVScreen: React.FC<SeniorPOVScreenProps> = ({
                 <button
                   type="button"
                   onClick={() =>
-                    setShowAskModal(false)
+                    setShowAskModal(
+                      false
+                    )
                   }
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white/70 hover:text-white"
                 >

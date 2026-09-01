@@ -1,6 +1,7 @@
 export type ScreenType =
   | 'home'
   | 'connect'
+  | 'alumni'
   | 'pulse'
   | 'events'
   | 'ai'
@@ -76,6 +77,24 @@ export interface ClubItem {
     time: string;
   };
   category: 'Technical' | 'Cultural' | 'Sports' | 'Creative' | 'Entrepreneurship' | 'Research';
+}
+
+export interface AlumniProfile {
+  id: string;
+  name: string;
+  role: string;
+  company: string;
+  department: string;
+  graduationYear: string;
+  location: string;
+  bio: string;
+  linkedInUrl?: string;
+  mentorshipTopics: string[];
+  skills: string[];
+  verified: boolean;
+  claimed: boolean;
+  availability: string;
+  avatarUrl: string;
 }
 
 export interface SeniorQuestion {
