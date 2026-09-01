@@ -18,7 +18,53 @@ interface GenZenAIScreenProps {
 
 const BACKEND_URL = '/api/genzen/ask';
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Markdown Formatter ──────────────────────────────────────────────────────
+
+const FormattedMessageText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.split('\n');
+
+  return (
+    <div className="space-y-2 font-body text-base sm:text-lg text-white/90 leading-relaxed">
+      {lines.map((line, lineIdx) => {
+        if (!line.trim()) return <div key={lineIdx} className="h-2" />;
+
+        // Parse markdown inline elements: **bold**, `code`, *italic*
+        const parts = line.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+
+        return (
+          <p key={lineIdx} className="leading-relaxed">
+            {parts.map((part, partIdx) => {
+              if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+                return (
+                  <strong key={partIdx} className="text-white font-bold">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+                return (
+                  <code key={partIdx} className="px-1.5 py-0.5 rounded bg-white/10 text-[#f0a878] font-mono text-sm">
+                    {part.slice(1, -1)}
+                  </code>
+                );
+              }
+              if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+                return (
+                  <em key={partIdx} className="italic text-white/95">
+                    {part.slice(1, -1)}
+                  </em>
+                );
+              }
+              return part;
+            })}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
   user,
@@ -134,10 +180,8 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                 </div>
               ) : (
                 <div className="bg-[#121216]/90 backdrop-blur-xl border border-white/10 rounded-3xl rounded-tl-sm p-6 max-w-3xl shadow-2xl space-y-4">
-                  <div className="flex items-start gap-4">
-                    <p className="font-body text-base sm:text-lg text-white/90 leading-relaxed whitespace-pre-wrap">
-                      {msg.text}
-                    </p>
+                  <div className="flex items-start gap-4 w-full">
+                    <FormattedMessageText text={msg.text} />
                   </div>
 
                   {/* Suggested follow-up chips from API */}
