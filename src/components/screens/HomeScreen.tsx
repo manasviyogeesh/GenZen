@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { UserProfile, SignalItem, ScreenType } from '../../types';
 
 interface HomeScreenProps {
@@ -16,6 +16,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenCreateModal,
   onEditProfile
 }) => {
+  const STORAGE_KEY = `genzen_avatar_${user.student_id}`;
+  const [localAvatar, setLocalAvatar] = useState<string | null>(
+    () => localStorage.getItem(STORAGE_KEY)
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setLocalAvatar(dataUrl);
+      localStorage.setItem(STORAGE_KEY, dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // allow re-selecting same file
+  };
+
+  const avatarSrc = localAvatar || user.avatarUrl || user.avatar;
+
   return (
     <div className="flex-1 min-h-screen p-6 md:p-10 lg:p-12 max-w-7xl mx-auto space-y-10">
       {/* Top Banner Heading */}
@@ -115,9 +138,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="lg:col-span-4">
           <div className="glass-card rounded-3xl p-6 md:p-8 border border-white/10 space-y-6 sticky top-24">
             <div className="flex flex-col items-center text-center">
-              <div className="relative mb-3">
+              <div
+                className="relative mb-3 group cursor-pointer"
+                onClick={handleAvatarClick}
+                title="Click to change photo"
+              >
+                {/* Hidden file picker */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#c2652a]/40 shadow-xl">
-                  <img src={user.avatarUrl || user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  <img src={avatarSrc} alt={user.name} className="w-full h-full object-cover" />
+                </div>
+                {/* Camera overlay on hover */}
+                <div className="absolute inset-0 rounded-full bg-black/55 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="material-symbols-outlined text-white text-2xl">photo_camera</span>
+                  <span className="text-white text-[9px] font-bold mt-0.5 tracking-wide">CHANGE</span>
                 </div>
                 <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 rounded-full ring-4 ring-[#141318]"></span>
               </div>
