@@ -82,10 +82,10 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
   }, [messages, isLoading]);
 
   const suggestedChips = [
-    { label: 'Find my hackathon team', icon: 'ðŸ¤', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
-    { label: 'Which club should I join?', icon: 'ðŸ«', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
-    { label: 'What do seniors recommend?', icon: 'ðŸ‘´', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
-    { label: "What's happening this week?", icon: 'ðŸ“…', prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
+    { label: 'Find my hackathon team', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
+    { label: 'Which club should I join?', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
+    { label: 'What do seniors recommend?', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
+    { label: "What's happening this week?", prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
   ];
 
   const submitQuestion = async (question: string) => {
@@ -233,9 +233,8 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                     key={chip.label}
                     onClick={() => submitQuestion(chip.prompt)}
                     disabled={isLoading}
-                    className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center active:scale-95 disabled:opacity-50"
                   >
-                    <span>{chip.icon}</span>
                     <span>{chip.label}</span>
                   </button>
                 ))}
@@ -287,7 +286,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
       <aside className="w-full lg:w-80 bg-[#121216] border-l border-white/10 flex flex-col z-30 shrink-0">
         <div className="p-6 pb-4">
           <h3 className="font-headline text-2xl text-white font-bold flex items-center gap-2">
-            <span>ðŸ§ </span>
+            <span className="material-symbols-outlined text-[#f0a878] text-2xl">psychology</span>
             <span>Your Context</span>
           </h3>
         </div>
@@ -300,7 +299,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-base text-white">{user.name}</h4>
-              <p className="text-xs text-white/50">{user.department} â€¢ {user.year}</p>
+              <p className="text-xs text-white/50">{user.department} • {user.year}</p>
             </div>
           </div>
 
