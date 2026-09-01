@@ -59,6 +59,35 @@ const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1502767089025-65725834
 
 const normalizeColumnName = (value: unknown): string => String(value || '').trim().toLowerCase();
 
+const logSchemaDiagnostics = (
+  stage: string,
+  details: {
+    databaseName?: string;
+    schemaName?: string;
+    tableSchema: string;
+    columns: Array<{ column_name: string; data_type: string; udt_name: string }>;
+    missing: string[];
+  }
+): void => {
+  console.info(
+    '[senior-pov-schema]',
+    JSON.stringify({
+      stage,
+      databaseName: details.databaseName,
+      schemaName: details.schemaName,
+      tableSchema: details.tableSchema,
+      returnedColumnCount: details.columns.length,
+      returnedColumnNames: details.columns.map((column) => column.column_name),
+      returnedColumnTypes: details.columns.map((column) => ({
+        column_name: column.column_name,
+        data_type: column.data_type,
+        udt_name: column.udt_name
+      })),
+      missing: details.missing
+    })
+  );
+};
+
 const normalizeArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.filter((item): item is string => typeof item === 'string');
@@ -134,9 +163,26 @@ const ensureSchema = async (): Promise<void> => {
     return;
   }
 
+  const environment = await query<Record<string, unknown>>(
+    `
+      SELECT
+        current_database() AS database_name,
+        current_schema() AS schema_name
+    `
+  );
+
+  const environmentRow = environment.rows[0] || {};
   const columns = await getTableColumns('senior_responses');
   const columnNames = new Set(columns.map((column) => normalizeColumnName(column.column_name)));
   const missing = REQUIRED_COLUMNS.filter((column) => !columnNames.has(normalizeColumnName(column)));
+
+  logSchemaDiagnostics('ensureSchema', {
+    databaseName: String(environmentRow.database_name || ''),
+    schemaName: String(environmentRow.schema_name || ''),
+    tableSchema: 'public',
+    columns,
+    missing
+  });
 
   if (missing.length > 0) {
     throw new ApiError(500, `senior_responses table is missing expected columns: ${missing.join(', ')}`);
