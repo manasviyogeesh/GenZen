@@ -1,6 +1,7 @@
 import { AuthAccount, AuthSession } from '../types';
 import { apiClient } from './apiClient';
 import { storage } from './storage';
+import { UserProfile } from '../types';
 
 const ACCOUNTS_KEY = 'genzen.auth.accounts';
 const SESSION_KEY = 'genzen.auth.session';

@@ -8,7 +8,7 @@ import studentsRoutes from './routes/students.js';
 import connectionsRoutes from './routes/connections.js';
 import seniorPovRoutes from './routes/seniorPov.js';
 import genieRoutes from './routes/genie.js';
-
+import eventsRoutes from './routes/events.js';
 
 const app = express();
 
@@ -94,7 +94,7 @@ app.use('/api/students', requireDbConfig, studentsRoutes);
 app.use('/api/connections', requireDbConfig, connectionsRoutes);
 app.use('/api/senior-pov', requireDbConfig, seniorPovRoutes);
 app.use('/api/genzen', genieRoutes);
-
+app.use('/api/events', eventsRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

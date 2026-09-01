@@ -247,27 +247,7 @@ export function App() {
           return;
         }
 
-        setUser(null);
-        setConnectCandidates([]);
-        setConnectedCount(0);
-        setRecentConnections([]);
         setIsBootstrapping(false);
-
-        return;
-      }
-
-      // -----------------------------------------------------
-      // Development mock session
-      // -----------------------------------------------------
-
-      if (
-        session.auth_user_id ===
-        'dev-user-001'
-      ) {
-        if (mounted) {
-          setIsBootstrapping(false);
-        }
-
         return;
       }
 
