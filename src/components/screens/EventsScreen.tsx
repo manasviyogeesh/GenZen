@@ -25,6 +25,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('All');
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
   const [registeredNotice, setRegisteredNotice] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CampusEvent | null>(null);
 
   // Fetch events when month/year changes - always from API
   useEffect(() => {
@@ -319,7 +320,8 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                 return (
                   <div
                     key={evt.id}
-                    className="glass-card rounded-2xl border border-white/10 overflow-hidden hover:border-[#c2652a]/40 transition-all p-4 flex gap-4 group"
+                    onClick={() => setSelectedEvent(evt)}
+                    className="glass-card rounded-2xl border border-white/10 overflow-hidden hover:border-[#c2652a]/40 transition-all p-4 flex gap-4 group cursor-pointer"
                   >
                     {/* Date Block */}
                     <div className="w-16 h-16 rounded-xl bg-white/5 flex-shrink-0 flex flex-col items-center justify-center border border-white/10 group-hover:border-[#c2652a]/30 transition-colors">
@@ -365,8 +367,56 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
               })
             )}
           </div>
+
         </div>
       </div>
+
+      {/* Popup overlay */}
+      {selectedEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-in fade-in"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            className="glass-card rounded-3xl p-6 md:p-8 max-w-lg w-full border border-white/10 shadow-2xl animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <span className={`text-[10px] font-bold uppercase tracking-wider border px-2 py-0.5 rounded ${selectedEvent.categoryColor}`}>{selectedEvent.category}</span>
+                <h4 className="font-headline text-2xl font-bold text-white mt-2 leading-tight">{selectedEvent.title}</h4>
+              </div>
+              <button onClick={() => setSelectedEvent(null)} className="text-white/60 hover:text-white shrink-0" aria-label="Close"><span className="material-symbols-outlined text-xl">close</span></button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <p className="text-white/40 text-xs uppercase font-bold">Date</p>
+                <p className="text-white font-semibold">{monthNames[selectedEvent.month - 1]} {selectedEvent.day}, {selectedEvent.year}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <p className="text-white/40 text-xs uppercase font-bold">Time</p>
+                <p className="text-white font-semibold">{selectedEvent.time}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <p className="text-white/40 text-xs uppercase font-bold">Location</p>
+                <p className="text-white font-semibold">{selectedEvent.location || 'TBD'}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <p className="text-white/40 text-xs uppercase font-bold">Description</p>
+                <p className="text-white/80 leading-relaxed">{selectedEvent.description || 'No description provided.'}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <p className="text-white/40 text-xs uppercase font-bold">Attendees</p>
+                <p className="text-white font-semibold">{selectedEvent.attendeesCount || 0} registered</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
