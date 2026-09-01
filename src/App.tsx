@@ -5,7 +5,6 @@ import {
   ScreenType,
   UserProfile,
   CampusEvent,
-  SeniorQuestion,
   StudentProfileDraft,
   TeammateCandidate,
 } from './types';
@@ -14,7 +13,6 @@ import {
   initialSignals,
   mockEvents,
   mockClubs,
-  mockQuestions,
 } from './data';
 
 import { authService } from './services/authService';
@@ -82,9 +80,6 @@ export function App() {
 
   const [events, setEvents] =
     useState<CampusEvent[]>(mockEvents);
-
-  const [questions, setQuestions] =
-    useState<SeniorQuestion[]>(mockQuestions);
 
   const [currentScreen, setCurrentScreen] =
     useState<ScreenType>('home');
@@ -971,7 +966,6 @@ export function App() {
           {currentScreen === 'senior_pov' && (
             <SeniorPOVScreen
               user={user}
-              questions={questions}
               onNavigate={handleNavigate}
               onAskQuestion={
                 handleAskQuestion

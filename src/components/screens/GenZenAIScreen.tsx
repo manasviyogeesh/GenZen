@@ -16,9 +16,55 @@ interface GenZenAIScreenProps {
   onOpenTeamBuilder: () => void;
 }
 
-const BACKEND_URL = 'http://localhost:4000/api/genzen/ask';
+const BACKEND_URL = '/api/genzen/ask';
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Markdown Formatter ──────────────────────────────────────────────────────
+
+const FormattedMessageText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.split('\n');
+
+  return (
+    <div className="space-y-2 font-body text-base sm:text-lg text-white/90 leading-relaxed">
+      {lines.map((line, lineIdx) => {
+        if (!line.trim()) return <div key={lineIdx} className="h-2" />;
+
+        // Parse markdown inline elements: **bold**, `code`, *italic*
+        const parts = line.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+
+        return (
+          <p key={lineIdx} className="leading-relaxed">
+            {parts.map((part, partIdx) => {
+              if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+                return (
+                  <strong key={partIdx} className="text-white font-bold">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+                return (
+                  <code key={partIdx} className="px-1.5 py-0.5 rounded bg-white/10 text-[#f0a878] font-mono text-sm">
+                    {part.slice(1, -1)}
+                  </code>
+                );
+              }
+              if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+                return (
+                  <em key={partIdx} className="italic text-white/95">
+                    {part.slice(1, -1)}
+                  </em>
+                );
+              }
+              return part;
+            })}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
   user,
@@ -36,10 +82,10 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
   }, [messages, isLoading]);
 
   const suggestedChips = [
-    { label: 'Find my hackathon team', icon: 'ðŸ¤', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
-    { label: 'Which club should I join?', icon: 'ðŸ«', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
-    { label: 'What do seniors recommend?', icon: 'ðŸ‘´', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
-    { label: "What's happening this week?", icon: 'ðŸ“…', prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
+    { label: 'Find my hackathon team', prompt: 'I need a team for the upcoming AI Hackathon with backend and frontend teammates.' },
+    { label: 'Which club should I join?', prompt: 'Which club is best for machine learning projects and networking in 3rd year?' },
+    { label: 'What do seniors recommend?', prompt: 'What electives and interview prep do seniors recommend for ML engineering?' },
+    { label: "What's happening this week?", prompt: "Give me a summary of all high-impact hackathons, seminars and club meetups happening this week." },
   ];
 
   const submitQuestion = async (question: string) => {
@@ -61,12 +107,12 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: trimmed }),
-        signal: AbortSignal.timeout(40_000), // 40s client-side timeout
+        signal: AbortSignal.timeout(85_000), // 85s client-side timeout
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error ?? `Server error ${res.status}`);
+        throw new Error(errData?.error || errData?.message || errData?.details || `Server error ${res.status}`);
       }
 
       const data = await res.json();
@@ -79,14 +125,14 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
           : undefined,
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch (err) {
+    } catch (err: any) {
       const isTimeout = err instanceof Error && err.name === 'TimeoutError';
       const errMsg: Message = {
         id: `err-${Date.now()}`,
         sender: 'error',
         text: isTimeout
           ? "GenZen took too long to respond. Please try again in a moment."
-          : "Something went wrong reaching the backend. Make sure the server is running and try again.",
+          : (err?.message || "Something went wrong reaching the backend. Make sure the server is running and try again."),
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -134,10 +180,8 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                 </div>
               ) : (
                 <div className="bg-[#121216]/90 backdrop-blur-xl border border-white/10 rounded-3xl rounded-tl-sm p-6 max-w-3xl shadow-2xl space-y-4">
-                  <div className="flex items-start gap-4">
-                    <p className="font-body text-base sm:text-lg text-white/90 leading-relaxed whitespace-pre-wrap">
-                      {msg.text}
-                    </p>
+                  <div className="flex items-start gap-4 w-full">
+                    <FormattedMessageText text={msg.text} />
                   </div>
 
                   {/* Suggested follow-up chips from API */}
@@ -189,9 +233,8 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
                     key={chip.label}
                     onClick={() => submitQuestion(chip.prompt)}
                     disabled={isLoading}
-                    className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-[#141318]/90 backdrop-blur-md border border-white/10 rounded-full text-xs text-white/70 hover:border-[#c2652a] hover:text-[#f0a878] transition-all flex items-center active:scale-95 disabled:opacity-50"
                   >
-                    <span>{chip.icon}</span>
                     <span>{chip.label}</span>
                   </button>
                 ))}
@@ -243,7 +286,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
       <aside className="w-full lg:w-80 bg-[#121216] border-l border-white/10 flex flex-col z-30 shrink-0">
         <div className="p-6 pb-4">
           <h3 className="font-headline text-2xl text-white font-bold flex items-center gap-2">
-            <span>ðŸ§ </span>
+            <span className="material-symbols-outlined text-[#f0a878] text-2xl">psychology</span>
             <span>Your Context</span>
           </h3>
         </div>
@@ -256,7 +299,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-base text-white">{user.name}</h4>
-              <p className="text-xs text-white/50">{user.department} â€¢ {user.year}</p>
+              <p className="text-xs text-white/50">{user.department} • {user.year}</p>
             </div>
           </div>
 

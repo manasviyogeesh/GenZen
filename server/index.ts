@@ -7,6 +7,8 @@ import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
 import connectionsRoutes from './routes/connections.js';
 import eventsRoutes from './routes/events.js';
+import seniorPovRoutes from './routes/seniorPov.js';
+import genieRoutes from './routes/genie.js';
 
 const app = express();
 
@@ -38,13 +40,21 @@ app.get('/api/health/db', async (_req, res) => {
   }
 
   try {
-    await query('SELECT 1');
-    res.json({ status: 'ok' });
+    const identity = await query<{ current_user: string; session_user: string }>(
+      'SELECT current_user, session_user'
+    );
+    res.json({
+      status: 'ok',
+      current_user: identity.rows[0]?.current_user,
+      session_user: identity.rows[0]?.session_user
+    });
   } catch (error) {
+    const code = (error as { code?: string } | undefined)?.code;
     res.status(503).json({
       status: 'error',
       message: 'Database connectivity failed.',
-      detail: asErrorMessage(error)
+      detail: asErrorMessage(error),
+      code
     });
   }
 });
@@ -83,6 +93,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', requireDbConfig, studentsRoutes);
 app.use('/api/connections', requireDbConfig, connectionsRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/senior-pov', requireDbConfig, seniorPovRoutes);
+app.use('/api/genzen', genieRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,7 +117,7 @@ app.use((req, _res, next) => {
   next(new ApiError(404, `Route not found: ${req.method} ${req.path}`));
 });
 
-app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((error: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   let status = 500;
   let message = 'Internal server error';
 
@@ -115,7 +127,8 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   }
 
   if (status >= 500) {
-    console.error(`[server-error] ${asErrorMessage(error)}`);
+    const code = (error as { code?: string } | undefined)?.code;
+    console.error(`[server-error] ${req.method} ${req.path} ${asErrorMessage(error)}${code ? ` (pg_code=${code})` : ''}`);
   }
 
   res.status(status).json({

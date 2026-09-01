@@ -141,6 +141,8 @@ export interface ClubItem {
 
 export interface SeniorQuestion {
   id: string;
+  question_id?: string;
+  student_id?: string | null;
   department: string;
   year: string;
   category: string;
@@ -151,6 +153,13 @@ export interface SeniorQuestion {
   answersCount: number;
   isSaved?: boolean;
   userVote?: 'up' | 'down' | null;
+  isSynthetic?: boolean;
+  authorName?: string;
+  authorBranch?: string;
+  authorYear?: string;
+  authorAvatar?: string;
+  created_at?: string;
+  updated_at?: string;
   answers?: {
     id: string;
     author: string;
@@ -159,7 +168,42 @@ export interface SeniorQuestion {
     content: string;
     likes: number;
     badgeColor?: string;
+    created_at?: string;
+    isSynthetic?: boolean;
   }[];
+}
+
+export interface SeniorInsightCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  value: string;
+  icon: string;
+  accent: string;
+}
+
+export interface SeniorContributor {
+  name: string;
+  details: string;
+  answers: number;
+  avatar: string;
+}
+
+export interface SeniorDiscussionCategory {
+  category: string;
+  count: number;
+}
+
+export interface SeniorPovInsights {
+  overview: SeniorInsightCard[];
+  contributors: SeniorContributor[];
+  trendingCategories: SeniorDiscussionCategory[];
+  unansweredQuestions: SeniorQuestion[];
+}
+
+export interface SeniorPovDashboard {
+  questions: SeniorQuestion[];
+  insights: SeniorPovInsights;
 }
 
 export interface ChatMessage {

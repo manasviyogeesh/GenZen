@@ -294,19 +294,27 @@ export const getTableColumns = async (
   tableName: string,
   tableSchema = 'public'
 ): Promise<TableColumn[]> => {
-
   const result =
     await query<TableColumn>(
       `
         SELECT
-          column_name,
-          data_type,
-          udt_name,
-          is_nullable
-        FROM information_schema.columns
-        WHERE table_schema = $1
-          AND table_name = $2
-        ORDER BY ordinal_position
+          a.attname AS column_name,
+          pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+          t.typname AS udt_name,
+          CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable
+        FROM pg_catalog.pg_attribute a
+        INNER JOIN pg_catalog.pg_class c
+          ON c.oid = a.attrelid
+        INNER JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        INNER JOIN pg_catalog.pg_type t
+          ON t.oid = a.atttypid
+        WHERE n.nspname = $1
+          AND c.relname = $2
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+          AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+        ORDER BY a.attnum
       `,
       [
         tableSchema,
