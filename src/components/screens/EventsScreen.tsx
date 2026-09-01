@@ -247,7 +247,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                   return <div key={idx} className="min-h-[76px] p-2 rounded-2xl border border-transparent"></div>;
                 }
 
-                const dayEvent = getEventForDay(cell.day);
+                const dayEvents = events.filter((e) => e.day === cell.day && e.month === currentMonth && e.year === currentYear);
                 const isSelected = selectedDay === cell.day;
 
                 return (
@@ -268,15 +268,14 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
                       {cell.day}
                     </span>
 
-                    {dayEvent && (
-                      <div className="flex items-center gap-1 mt-auto">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0 shadow-sm"
-                          style={{ backgroundColor: dayEvent.dotColor }}
-                        ></span>
-                        <span className="text-[10px] text-white/80 font-medium truncate hidden sm:inline">
-                          {dayEvent.category}
-                        </span>
+                    {dayEvents.length > 0 && (
+                      <div className="flex flex-col gap-0.5 mt-auto">
+                        {dayEvents.map((evt) => (
+                          <div key={evt.id} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: evt.dotColor }} />
+                            <span className="text-[10px] text-white/90 font-medium truncate">{evt.title}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
