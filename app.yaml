@@ -8,3 +8,13 @@ env:
 
   - name: ENDPOINT_NAME
     valueFrom: postgres
+
+  - name: GENIE_DATABRICKS_HOST
+    value: "https://dbc-93e309cf-694b.cloud.databricks.com"
+
+  - name: GENIE_SPACE_ID
+    value: "01f1a563cf5019d98bb2b7b581ab31fd"
+
+  - name: GENIE_DATABRICKS_TOKEN
+    value: ""
+

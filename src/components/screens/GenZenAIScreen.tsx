@@ -16,7 +16,7 @@ interface GenZenAIScreenProps {
   onOpenTeamBuilder: () => void;
 }
 
-const BACKEND_URL = 'http://localhost:4000/api/genzen/ask';
+const BACKEND_URL = '/api/genzen/ask';
 
 // â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

@@ -20,7 +20,7 @@ const {
   DATABRICKS_HOST,
   DATABRICKS_TOKEN,
   GENIE_SPACE_ID,
-  PORT = 4000,
+  GENIE_PORT = 4000,
 } = process.env;
 
 if (!DATABRICKS_HOST || !DATABRICKS_TOKEN || !GENIE_SPACE_ID) {
@@ -30,7 +30,7 @@ if (!DATABRICKS_HOST || !DATABRICKS_TOKEN || !GENIE_SPACE_ID) {
   process.exit(1);
 }
 
-const GENIE_BASE = `${DATABRICKS_HOST}/api/2.0/genie/spaces/${GENIE_SPACE_ID}`;
+const GENIE_BASE = `${DATABRICKS_HOST.replace(/\/$/, '')}/api/2.0/genie/spaces/${GENIE_SPACE_ID}`;
 const AUTH_HEADER = { Authorization: `Bearer ${DATABRICKS_TOKEN}` };
 
 const POLL_INTERVAL_MS = 1500;
@@ -259,8 +259,8 @@ function sleep(ms) {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`\n🚀  GenZen backend running on http://localhost:${PORT}`);
+app.listen(GENIE_PORT, () => {
+  console.log(`\n🚀  GenZen backend running on http://localhost:${GENIE_PORT}`);
   console.log(`   Databricks host : ${DATABRICKS_HOST}`);
   console.log(`   Genie space     : ${GENIE_SPACE_ID}`);
   console.log(`   Route           : POST /api/genzen/ask`);
