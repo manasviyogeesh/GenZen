@@ -57,6 +57,8 @@ let validated = false;
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1502767089025-6572583495b0?w=400&auto=format&fit=crop&q=80';
 
+const normalizeColumnName = (value: unknown): string => String(value || '').trim().toLowerCase();
+
 const normalizeArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.filter((item): item is string => typeof item === 'string');
@@ -133,8 +135,8 @@ const ensureSchema = async (): Promise<void> => {
   }
 
   const columns = await getTableColumns('senior_responses');
-  const columnNames = new Set(columns.map((column) => column.column_name));
-  const missing = REQUIRED_COLUMNS.filter((column) => !columnNames.has(column));
+  const columnNames = new Set(columns.map((column) => normalizeColumnName(column.column_name)));
+  const missing = REQUIRED_COLUMNS.filter((column) => !columnNames.has(normalizeColumnName(column)));
 
   if (missing.length > 0) {
     throw new ApiError(500, `senior_responses table is missing expected columns: ${missing.join(', ')}`);
