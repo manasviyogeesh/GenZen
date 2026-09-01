@@ -127,12 +127,12 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
     const matchesCategory = activeCategoryFilter === 'All' || e.category === activeCategoryFilter;
     const matchesMonth = e.month === currentMonth && e.year === currentYear;
     const matchesDay = selectedDay === null || e.day === selectedDay;
-    return matchesCategory && matchesMonth && (selectedDay === null ? true : matchesDay);
+    return matchesCategory && matchesMonth && matchesDay;
   });
 
   // Count events per day for current month only
   const getEventCountForDay = (day: number) => {
-    return events.filter((e) => e.day === day).length;
+    return events.filter((e) => e.day === day && e.month === currentMonth && e.year === currentYear).length;
   };
 
   const toggleRegister = (eventId: string, title: string) => {
