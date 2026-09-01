@@ -7,6 +7,28 @@ export class HttpError extends Error {
   }
 }
 
+const SESSION_KEY = 'genzen.auth.session';
+
+const getAuthUserIdFromSession = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const rawSession = window.localStorage.getItem(SESSION_KEY);
+  if (!rawSession) {
+    return null;
+  }
+
+  try {
+    const session = JSON.parse(rawSession) as { auth_user_id?: unknown };
+    return typeof session.auth_user_id === 'string' && session.auth_user_id.trim()
+      ? session.auth_user_id.trim()
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 const parseJsonSafe = async (response: Response): Promise<Record<string, unknown> | null> => {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -21,9 +43,11 @@ const parseJsonSafe = async (response: Response): Promise<Record<string, unknown
 };
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const authUserId = getAuthUserIdFromSession();
   const response = await fetch(path, {
     headers: {
       'Content-Type': 'application/json',
+      ...(authUserId ? { 'x-auth-user-id': authUserId } : {}),
       ...(init?.headers || {})
     },
     ...init
@@ -42,20 +66,22 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 };
 
 export const apiClient = {
-  get<T>(path: string): Promise<T> {
-    return request<T>(path, { method: 'GET' });
+  get<T>(path: string, init?: RequestInit): Promise<T> {
+    return request<T>(path, { method: 'GET', ...init });
   },
 
-  post<T>(path: string, body?: unknown): Promise<T> {
+  post<T>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
     return request<T>(path, {
       method: 'POST',
+      ...init,
       body: body ? JSON.stringify(body) : undefined
     });
   },
 
-  put<T>(path: string, body?: unknown): Promise<T> {
+  put<T>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
     return request<T>(path, {
       method: 'PUT',
+      ...init,
       body: body ? JSON.stringify(body) : undefined
     });
   }

@@ -6,6 +6,7 @@ import { ApiError, asErrorMessage } from './errors.js';
 import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
 import connectionsRoutes from './routes/connections.js';
+import seniorPovRoutes from './routes/seniorPov.js';
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.get('/api/schema', requireDbConfig, async (_req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/students', requireDbConfig, studentsRoutes);
 app.use('/api/connections', requireDbConfig, connectionsRoutes);
+app.use('/api/senior-pov', requireDbConfig, seniorPovRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
