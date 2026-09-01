@@ -3,14 +3,12 @@ import { CampusEvent, ScreenType } from '../../types';
 import { eventsService } from '../../services/eventsService';
 
 interface EventsScreenProps {
-  events: CampusEvent[];
   onNavigate: (screen: ScreenType) => void;
   onOpenCreateModal: () => void;
   onEventCreated?: () => void;
 }
 
 export const EventsScreen: React.FC<EventsScreenProps> = ({
-  events: propEvents,
   onNavigate,
   onOpenCreateModal,
   onEventCreated
@@ -28,13 +26,13 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
   const [registeredNotice, setRegisteredNotice] = useState<string | null>(null);
 
-  // Fetch events when month/year changes
+  // Fetch events when month/year changes - always from API
   useEffect(() => {
     let active = true;
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        const fetchedEvents = await eventsService.getEventsByMonth(currentYear, currentMonth);
+        const fetchedEvents = await eventsService.getEventsByMonth(currentYear, currentMonth, true);
         if (active) {
           setEvents(fetchedEvents);
         }
@@ -56,20 +54,6 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
       active = false;
     };
   }, [currentYear, currentMonth]);
-
-  // Sync any newly added event from props instantly
-  useEffect(() => {
-    if (propEvents && propEvents.length > 0) {
-      setEvents((prev) => {
-        const existingIds = new Set(prev.map((e) => e.id));
-        const newEventsToAdd = propEvents.filter((e) => !existingIds.has(e.id));
-        if (newEventsToAdd.length > 0) {
-          return [...newEventsToAdd, ...prev];
-        }
-        return prev;
-      });
-    }
-  }, [propEvents]);
 
   // Generate calendar days for the current month
   const generateCalendarDays = () => {
@@ -136,14 +120,20 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({
   };
 
   const getEventForDay = (day: number) => {
-    return events.find((e) => e.day === day);
+    return events.find((e) => e.day === day && e.month === currentMonth && e.year === currentYear);
   };
 
   const filteredEvents = events.filter((e) => {
     const matchesCategory = activeCategoryFilter === 'All' || e.category === activeCategoryFilter;
+    const matchesMonth = e.month === currentMonth && e.year === currentYear;
     const matchesDay = selectedDay === null || e.day === selectedDay;
-    return matchesCategory && (selectedDay === null ? true : matchesDay);
+    return matchesCategory && matchesMonth && (selectedDay === null ? true : matchesDay);
   });
+
+  // Count events per day for current month only
+  const getEventCountForDay = (day: number) => {
+    return events.filter((e) => e.day === day).length;
+  };
 
   const toggleRegister = (eventId: string, title: string) => {
     if (registeredEventIds.includes(eventId)) {

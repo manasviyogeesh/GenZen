@@ -31,6 +31,8 @@ export interface CreateEventRequest {
 export interface EventResponse {
   id: string;
   day: number;
+  month: number;
+  year: number;
   title: string;
   time: string;
   category: 'Workshop' | 'Networking' | 'Club Event' | 'Hackathon' | 'Career';

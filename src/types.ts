@@ -110,6 +110,8 @@ export interface TeammateCandidate {
 export interface CampusEvent {
   id: string;
   day: number;
+  month: number;
+  year: number;
   title: string;
   time: string;
   category: 'Workshop' | 'Networking' | 'Club Event' | 'Hackathon' | 'Career';

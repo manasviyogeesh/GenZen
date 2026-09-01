@@ -38,6 +38,8 @@ const getCategoryColors = (category: string): { dotColor: string; categoryColor:
 const transformEventRecord = (record: EventRecord): EventResponse => {
   const eventDate = new Date(record.event_date);
   const day = eventDate.getDate();
+  const month = eventDate.getMonth() + 1; // 1-based month
+  const year = eventDate.getFullYear();
 
   const time = record.start_time && record.end_time
     ? `${record.start_time} - ${record.end_time}`
@@ -46,6 +48,8 @@ const transformEventRecord = (record: EventRecord): EventResponse => {
   return {
     id: record.event_id,
     day,
+    month,
+    year,
     title: record.title,
     time,
     category: record.category,
