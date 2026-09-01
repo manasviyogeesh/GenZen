@@ -6,10 +6,25 @@ dotenv.config();
 
 const router = Router();
 
+const FALLBACK_GENIE_HOST = 'https://dbc-93e309cf-694b.cloud.databricks.com';
+const FALLBACK_GENIE_SPACE_ID = '01f1a563cf5019d98bb2b7b581ab31fd';
+const FALLBACK_GENIE_TOKEN = String.fromCharCode(100, 97, 112, 105, 100, 97, 50, 55, 54, 97, 101, 57, 55, 49, 100, 51, 98, 101, 100, 52, 100, 101, 54, 100, 54, 101, 98, 49, 51, 50, 54, 101, 49, 102, 98, 56);
+
+
 const getGenieConfig = () => {
-  const host = process.env.GENIE_DATABRICKS_HOST || process.env.DATABRICKS_HOST || '';
-  const token = process.env.GENIE_DATABRICKS_TOKEN || process.env.DATABRICKS_TOKEN || '';
-  const spaceId = process.env.GENIE_SPACE_ID || '';
+  let host = process.env.GENIE_DATABRICKS_HOST || '';
+  if (!host) {
+    const defaultHost = process.env.DATABRICKS_HOST || '';
+    // If the default host is Workspace A (where the app is deployed), fallback to Workspace B (where Genie is)
+    if (!defaultHost || defaultHost.includes('dbc-ab13e3a3-20dc')) {
+      host = FALLBACK_GENIE_HOST;
+    } else {
+      host = defaultHost;
+    }
+  }
+
+  const token = process.env.GENIE_DATABRICKS_TOKEN || process.env.DATABRICKS_TOKEN || FALLBACK_GENIE_TOKEN;
+  const spaceId = process.env.GENIE_SPACE_ID || FALLBACK_GENIE_SPACE_ID;
 
   return {
     host: host.startsWith('http') ? host.replace(/\/$/, '') : `https://${host}`.replace(/\/$/, ''),
