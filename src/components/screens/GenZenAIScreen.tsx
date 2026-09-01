@@ -66,7 +66,7 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error ?? `Server error ${res.status}`);
+        throw new Error(errData?.error || errData?.message || errData?.details || `Server error ${res.status}`);
       }
 
       const data = await res.json();
@@ -79,14 +79,14 @@ export const GenZenAIScreen: React.FC<GenZenAIScreenProps> = ({
           : undefined,
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch (err) {
+    } catch (err: any) {
       const isTimeout = err instanceof Error && err.name === 'TimeoutError';
       const errMsg: Message = {
         id: `err-${Date.now()}`,
         sender: 'error',
         text: isTimeout
           ? "GenZen took too long to respond. Please try again in a moment."
-          : "Something went wrong reaching the backend. Make sure the server is running and try again.",
+          : (err?.message || "Something went wrong reaching the backend. Make sure the server is running and try again."),
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
