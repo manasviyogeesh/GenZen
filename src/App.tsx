@@ -252,57 +252,7 @@ export function App() {
           return;
         }
 
-        // Create mock session for development/testing
-        const mockSession: AuthSession = {
-          auth_user_id: 'dev-user-001',
-          email: 'dev@genzen.local',
-          signed_in_at: new Date().toISOString()
-        };
-
-        setSession(mockSession);
-
-        // Also create and set a mock user profile for the dev user
-        const mockUser: UserProfile = {
-          student_id: 'dev-student-001',
-          auth_user_id: 'dev-user-001',
-          email: 'dev@genzen.local',
-          name: 'Dev User',
-          role: 'Student',
-          year: '4th Year',
-          branch: 'CSE',
-          department: 'Computer Science',
-          connectionsCount: 0,
-          avatar: '',
-          avatarUrl: '',
-          skills: [],
-          interests: [],
-          lookingFor: [],
-          availability: [],
-          bio: 'Development test user',
-          clubs: [],
-          events: [],
-          connections: [],
-          created_at: new Date().toISOString(),
-          last_active: new Date().toISOString()
-        };
-
-        setUser(mockUser);
         setIsBootstrapping(false);
-        return;
-      }
-
-      // -----------------------------------------------------
-      // Development mock session
-      // -----------------------------------------------------
-
-      if (
-        session.auth_user_id ===
-        'dev-user-001'
-      ) {
-        if (mounted) {
-          setIsBootstrapping(false);
-        }
-
         return;
       }
 
