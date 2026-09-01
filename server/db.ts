@@ -295,6 +295,14 @@ export const getTableColumns = async (
   tableSchema = 'public'
 ): Promise<TableColumn[]> => {
 
+  console.info(
+    '[db-metadata]',
+    JSON.stringify({
+      tableSchema,
+      tableName
+    })
+  );
+
   const result =
     await query<TableColumn>(
       `
@@ -313,6 +321,15 @@ export const getTableColumns = async (
         tableName
       ]
     );
+
+  console.info(
+    '[db-metadata]',
+    JSON.stringify({
+      tableSchema,
+      tableName,
+      returnedRowCount: result.rowCount ?? result.rows.length
+    })
+  );
 
   return result.rows;
 };
